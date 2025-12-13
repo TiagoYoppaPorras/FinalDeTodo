@@ -1,12 +1,19 @@
 import { useEffect, useState } from "react";
 import MainLayout from "../../components/layout/MainLayout";
 import api from "../../api/Client";
-import { Layers, PlusCircle, Trash2 } from "lucide-react";
+import { Layers, PlusCircle, Trash2, Edit } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import EditModal from "../../components/common/EditModal";
 
 export default function Salas() {
   const [salas, setSalas] = useState([]);
   const [nuevaSala, setNuevaSala] = useState({ nombre: "", ubicacion: "" });
+
+  // Estados para edición
+  const [editando, setEditando] = useState(null);
+  const [datosEdicion, setDatosEdicion] = useState({});
+  const [isLoadingSave, setIsLoadingSave] = useState(false);
+
   const { roles } = useAuth();
   const isAdmin = roles.includes("admin");
 
@@ -32,6 +39,33 @@ export default function Salas() {
       fetchSalas();
     } catch (err) {
       console.error("❌ Error al crear sala:", err);
+      alert("Error al crear sala");
+    }
+  };
+
+  // --- 🔹 Abrir modal de edición ---
+  const handleEdit = (sala) => {
+    setEditando(sala.id);
+    setDatosEdicion({
+      nombre: sala.nombre,
+      ubicacion: sala.ubicacion,
+    });
+  };
+
+  // --- 🔹 Guardar cambios de edición ---
+  const handleUpdate = async () => {
+    setIsLoadingSave(true);
+    try {
+      await api.put(`/salas/${editando}`, datosEdicion);
+      alert("✅ Sala actualizada correctamente");
+      setEditando(null);
+      setDatosEdicion({});
+      fetchSalas();
+    } catch (err) {
+      console.error("❌ Error actualizando sala:", err);
+      alert("Error al actualizar sala");
+    } finally {
+      setIsLoadingSave(false);
     }
   };
 
@@ -108,13 +142,21 @@ export default function Salas() {
                     <td className="p-2 border">{s.nombre}</td>
                     <td className="p-2 border">{s.ubicacion || "—"}</td>
                     {isAdmin && (
-                      <td className="p-2 border text-center">
-                        <button
-                          onClick={() => handleDelete(s.id)}
-                          className="bg-red-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 justify-center hover:bg-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" /> Eliminar
-                        </button>
+                      <td className="p-2 border">
+                        <div className="flex gap-2 justify-center">
+                          <button
+                            onClick={() => handleEdit(s)}
+                            className="bg-yellow-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-yellow-600"
+                          >
+                            <Edit className="w-4 h-4" /> Editar
+                          </button>
+                          <button
+                            onClick={() => handleDelete(s.id)}
+                            className="bg-red-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-red-600"
+                          >
+                            <Trash2 className="w-4 h-4" /> Eliminar
+                          </button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -123,6 +165,48 @@ export default function Salas() {
             </table>
           )}
         </div>
+
+        {/* 🔹 Modal de edición */}
+        <EditModal
+          isOpen={editando !== null}
+          onClose={() => {
+            setEditando(null);
+            setDatosEdicion({});
+          }}
+          title="Editar Sala"
+          onSave={handleUpdate}
+          isLoading={isLoadingSave}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nombre de la Sala
+              </label>
+              <input
+                type="text"
+                className="w-full border border-gray-300 rounded-lg p-2"
+                value={datosEdicion.nombre || ""}
+                onChange={(e) =>
+                  setDatosEdicion({ ...datosEdicion, nombre: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Ubicación
+              </label>
+              <input
+                type="text"
+                className="w-full border border-gray-300 rounded-lg p-2"
+                value={datosEdicion.ubicacion || ""}
+                onChange={(e) =>
+                  setDatosEdicion({ ...datosEdicion, ubicacion: e.target.value })
+                }
+              />
+            </div>
+          </div>
+        </EditModal>
       </div>
     </MainLayout>
   );

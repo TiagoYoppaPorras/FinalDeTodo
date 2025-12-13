@@ -1,16 +1,28 @@
 import { useEffect, useState } from "react";
 import MainLayout from "../../components/layout/MainLayout";
 import api from "../../api/Client";
-import { Users, PlusCircle, Trash2 } from "lucide-react";
+import { Users, PlusCircle, Trash2, Edit, Shield } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import EditModal from "../../components/common/EditModal";
 
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [nuevoUsuario, setNuevoUsuario] = useState({
     nombre: "",
     email: "",
     password: "",
   });
+
+  // Estados para edición
+  const [editando, setEditando] = useState(null);
+  const [datosEdicion, setDatosEdicion] = useState({});
+  const [isLoadingSave, setIsLoadingSave] = useState(false);
+
+  // Estados para gestión de roles
+  const [gestionandoRoles, setGestionandoRoles] = useState(null);
+  const [rolesUsuario, setRolesUsuario] = useState([]);
+  const [isLoadingRoles, setIsLoadingRoles] = useState(false);
 
   const { loading, user } = useAuth();
 
@@ -24,10 +36,21 @@ export default function Usuarios() {
     }
   };
 
+  // --- 🔹 Obtener roles disponibles ---
+  const fetchRoles = async () => {
+    try {
+      const res = await api.get("/roles/");
+      setRoles(res.data);
+    } catch (err) {
+      console.error("❌ Error cargando roles:", err);
+    }
+  };
+
   // --- 🔹 Ejecutar fetch al cargar ---
   useEffect(() => {
     if (!loading && user) {
       fetchUsuarios();
+      fetchRoles();
     }
   }, [loading, user]);
 
@@ -50,6 +73,33 @@ export default function Usuarios() {
     }
   };
 
+  // --- 🔹 Abrir modal de edición ---
+  const handleEdit = (usuario) => {
+    setEditando(usuario.id);
+    setDatosEdicion({
+      nombre: usuario.nombre,
+      email: usuario.email,
+      activo: usuario.activo,
+    });
+  };
+
+  // --- 🔹 Guardar cambios de edición ---
+  const handleUpdate = async () => {
+    setIsLoadingSave(true);
+    try {
+      await api.put(`/usuarios/${editando}`, datosEdicion);
+      alert("✅ Usuario actualizado correctamente");
+      setEditando(null);
+      setDatosEdicion({});
+      fetchUsuarios();
+    } catch (err) {
+      console.error("❌ Error actualizando usuario:", err);
+      alert("Error al actualizar usuario. Revisa la consola.");
+    } finally {
+      setIsLoadingSave(false);
+    }
+  };
+
   // --- 🔹 Eliminar usuario ---
   const handleDelete = async (id) => {
     if (!confirm("¿Eliminar usuario?")) return;
@@ -62,6 +112,52 @@ export default function Usuarios() {
     }
   };
 
+  // --- 🔹 Abrir modal de gestión de roles ---
+  const handleGestionarRoles = (usuario) => {
+    setGestionandoRoles(usuario.id);
+    setRolesUsuario(usuario.roles || []);
+  };
+
+  // --- 🔹 Asignar rol a usuario ---
+  const handleAsignarRol = async (roleId) => {
+    setIsLoadingRoles(true);
+    try {
+      await api.post(`/roles/${gestionandoRoles}/roles/${roleId}`);
+      alert("✅ Rol asignado correctamente");
+      
+      // Actualizar roles del usuario en el modal
+      const rol = roles.find(r => r.id === roleId);
+      setRolesUsuario([...rolesUsuario, rol]);
+      
+      fetchUsuarios();
+    } catch (err) {
+      console.error("❌ Error asignando rol:", err);
+      alert(err.response?.data?.detail || "Error al asignar rol");
+    } finally {
+      setIsLoadingRoles(false);
+    }
+  };
+
+  // --- 🔹 Remover rol de usuario ---
+  const handleRemoverRol = async (roleId) => {
+    if (!confirm("¿Remover este rol?")) return;
+    setIsLoadingRoles(true);
+    try {
+      await api.delete(`/roles/${gestionandoRoles}/roles/${roleId}`);
+      alert("✅ Rol removido correctamente");
+      
+      // Actualizar roles del usuario en el modal
+      setRolesUsuario(rolesUsuario.filter(r => r.id !== roleId));
+      
+      fetchUsuarios();
+    } catch (err) {
+      console.error("❌ Error removiendo rol:", err);
+      alert(err.response?.data?.detail || "Error al remover rol");
+    } finally {
+      setIsLoadingRoles(false);
+    }
+  };
+
   // --- 🔹 Estado de carga inicial ---
   if (loading) {
     return (
@@ -71,7 +167,6 @@ export default function Usuarios() {
     );
   }
 
-  // --- 🔹 Render ---
   return (
     <MainLayout>
       <div className="p-6 space-y-6">
@@ -130,37 +225,218 @@ export default function Usuarios() {
           {usuarios.length === 0 ? (
             <p className="text-gray-500">No hay usuarios registrados.</p>
           ) : (
-            <table className="w-full border text-sm">
-              <thead className="bg-gray-100 text-gray-700">
-                <tr>
-                  <th className="p-2 border">Nombre</th>
-                  <th className="p-2 border">Email</th>
-                  <th className="p-2 border">Activo</th>
-                  <th className="p-2 border">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {usuarios.map((u) => (
-                  <tr key={u.id} className="border-t hover:bg-gray-50">
-                    <td className="p-2 border">{u.nombre}</td>
-                    <td className="p-2 border">{u.email}</td>
-                    <td className="p-2 border text-center">
-                      {u.activo ? "✅" : "❌"}
-                    </td>
-                    <td className="p-2 border text-center">
-                      <button
-                        onClick={() => handleDelete(u.id)}
-                        className="bg-red-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 justify-center hover:bg-red-600"
-                      >
-                        <Trash2 className="w-4 h-4" /> Eliminar
-                      </button>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full border text-sm">
+                <thead className="bg-gray-100 text-gray-700">
+                  <tr>
+                    <th className="p-2 border">Nombre</th>
+                    <th className="p-2 border">Email</th>
+                    <th className="p-2 border">Roles</th>
+                    <th className="p-2 border">Activo</th>
+                    <th className="p-2 border">Acciones</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {usuarios.map((u) => (
+                    <tr key={u.id} className="border-t hover:bg-gray-50">
+                      <td className="p-2 border">{u.nombre}</td>
+                      <td className="p-2 border">{u.email}</td>
+                      <td className="p-2 border">
+                        <div className="flex flex-wrap gap-1">
+                          {u.roles && u.roles.length > 0 ? (
+                            u.roles.map((rol) => (
+                              <span
+                                key={rol.id}
+                                className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium"
+                              >
+                                {rol.name}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-gray-400 text-xs">Sin roles</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-2 border text-center">
+                        {u.activo ? "✅" : "❌"}
+                      </td>
+                      <td className="p-2 border">
+                        <div className="flex gap-2 justify-center flex-wrap">
+                          <button
+                            onClick={() => handleEdit(u)}
+                            className="bg-yellow-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-yellow-600"
+                          >
+                            <Edit className="w-4 h-4" /> Editar
+                          </button>
+                          <button
+                            onClick={() => handleGestionarRoles(u)}
+                            className="bg-purple-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-purple-600"
+                          >
+                            <Shield className="w-4 h-4" /> Roles
+                          </button>
+                          <button
+                            onClick={() => handleDelete(u.id)}
+                            className="bg-red-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-red-600"
+                          >
+                            <Trash2 className="w-4 h-4" /> Eliminar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
+
+        {/* 🔹 Modal de edición */}
+        <EditModal
+          isOpen={editando !== null}
+          onClose={() => {
+            setEditando(null);
+            setDatosEdicion({});
+          }}
+          title="Editar Usuario"
+          onSave={handleUpdate}
+          isLoading={isLoadingSave}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nombre Completo
+              </label>
+              <input
+                type="text"
+                className="w-full border border-gray-300 rounded-lg p-2"
+                value={datosEdicion.nombre || ""}
+                onChange={(e) =>
+                  setDatosEdicion({ ...datosEdicion, nombre: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                className="w-full border border-gray-300 rounded-lg p-2"
+                value={datosEdicion.email || ""}
+                onChange={(e) =>
+                  setDatosEdicion({ ...datosEdicion, email: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={datosEdicion.activo || false}
+                  onChange={(e) =>
+                    setDatosEdicion({ ...datosEdicion, activo: e.target.checked })
+                  }
+                  className="w-4 h-4"
+                />
+                <span className="text-sm font-medium text-gray-700">
+                  Usuario Activo
+                </span>
+              </label>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <p className="text-xs text-yellow-800">
+                <strong>Nota:</strong> Si deseas cambiar la contraseña, deja el
+                campo vacío para mantener la actual.
+              </p>
+            </div>
+          </div>
+        </EditModal>
+
+        {/* 🔹 Modal de gestión de roles */}
+        <EditModal
+          isOpen={gestionandoRoles !== null}
+          onClose={() => {
+            setGestionandoRoles(null);
+            setRolesUsuario([]);
+          }}
+          title="Gestionar Roles de Usuario"
+          onSave={() => {
+            setGestionandoRoles(null);
+            setRolesUsuario([]);
+          }}
+          isLoading={false}
+        >
+          <div className="space-y-4">
+            {/* Roles actuales */}
+            <div>
+              <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-purple-600" />
+                Roles Asignados
+              </h4>
+              {rolesUsuario.length === 0 ? (
+                <p className="text-gray-500 text-sm">No tiene roles asignados</p>
+              ) : (
+                <div className="space-y-2">
+                  {rolesUsuario.map((rol) => (
+                    <div
+                      key={rol.id}
+                      className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-lg p-3"
+                    >
+                      <div>
+                        <p className="font-medium text-purple-800">{rol.name}</p>
+                        {rol.description && (
+                          <p className="text-xs text-purple-600">{rol.description}</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleRemoverRol(rol.id)}
+                        disabled={isLoadingRoles}
+                        className="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Agregar nuevo rol */}
+            <div>
+              <h4 className="font-semibold text-gray-700 mb-2">Agregar Rol</h4>
+              <div className="space-y-2">
+                {roles
+                  .filter(rol => !rolesUsuario.find(r => r.id === rol.id))
+                  .map((rol) => (
+                    <div
+                      key={rol.id}
+                      className="flex items-center justify-between bg-gray-50 border rounded-lg p-3"
+                    >
+                      <div>
+                        <p className="font-medium text-gray-800">{rol.name}</p>
+                        {rol.description && (
+                          <p className="text-xs text-gray-600">{rol.description}</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleAsignarRol(rol.id)}
+                        disabled={isLoadingRoles}
+                        className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700 disabled:opacity-50"
+                      >
+                        Asignar
+                      </button>
+                    </div>
+                  ))}
+                {roles.filter(rol => !rolesUsuario.find(r => r.id === rol.id)).length === 0 && (
+                  <p className="text-gray-500 text-sm">Todos los roles ya están asignados</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </EditModal>
       </div>
     </MainLayout>
   );

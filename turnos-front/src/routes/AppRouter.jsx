@@ -13,6 +13,10 @@ import Salas from "../pages/admin/Salas";
 import MisTurnosPaciente from "../pages/MisTurnosPaciente";
 import NuevoTurnoPaciente from "../pages/NuevoTurnoPaciente";
 
+// Rutas de recepcionista
+import DashboardRecepcionista from "../pages/recepcionista/DashboardRecepcionista";
+import TurnosRecepcion from "../pages/recepcionista/TurnosRecepcion";
+
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -96,6 +100,25 @@ export default function App() {
             }
           />
 
+          {/* 🔹 Panel Recepcionista */}
+          <Route
+            path="/recepcion/dashboard"
+            element={
+              <PrivateRoute>
+                <DashboardRecepcionista />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/recepcion/turnos"
+            element={
+              <PrivateRoute>
+                <TurnosRecepcion />
+              </PrivateRoute>
+            }
+          />
+
+          {/* 🔹 Panel Paciente */}
           <Route
              path="/mis-turnos"
             element={

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.core.crud import user_crud
 from app.core.security import get_password_hash
@@ -10,7 +10,9 @@ router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
 @router.get("/", response_model=list[UserOut])
 def listar_usuarios(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    return user_crud.get_multi(db, skip=skip, limit=limit)
+    # Cargar usuarios con sus roles
+    usuarios = db.query(User).options(joinedload(User.roles)).offset(skip).limit(limit).all()
+    return usuarios
 
 @router.post("/", response_model=UserOut, status_code=201)
 def crear_usuario(user: UserCreate, db: Session = Depends(get_db)):
@@ -26,11 +28,16 @@ def crear_usuario(user: UserCreate, db: Session = Depends(get_db)):
 
 @router.get("/{user_id}", response_model=UserOut)
 def obtener_usuario(user_id: int, db: Session = Depends(get_db)):
-    return user_crud.get_or_404(db, user_id)
+    # CRÍTICO: Cargar usuario CON sus roles usando joinedload
+    user = db.query(User).options(joinedload(User.roles)).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return user
 
 @router.put("/{user_id}", response_model=UserOut)
 def actualizar_usuario(user_id: int, user: UserUpdate, db: Session = Depends(get_db)):
-    db_user = user_crud.get(db, user_id)
+    # Cargar usuario con roles
+    db_user = db.query(User).options(joinedload(User.roles)).filter(User.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     

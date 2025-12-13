@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 import os
 
 # Routers
-from app.routers import auth, usuarios, roles, turnos, pacientes, kinesiologos, servicios, salas
+from app.routers import auth, usuarios, roles, turnos, pacientes, kinesiologos, servicios, salas, recepcion
 
 # Excepciones personalizadas
 from app.core.exceptions import http_error_handler, generic_error_handler
@@ -33,6 +33,7 @@ app = FastAPI(
         {"name": "Kinesiologos", "description": "Gestión de kinesiólogos"},
         {"name": "Salas", "description": "Gestión de salas"},
         {"name": "Servicios", "description": "Gestión de servicios"},
+        {"name": "Recepción", "description": "Funcionalidades para recepcionistas"},
     ],
 )
 
@@ -90,6 +91,7 @@ app.include_router(pacientes.router)
 app.include_router(kinesiologos.router)
 app.include_router(servicios.router)
 app.include_router(salas.router)
+app.include_router(recepcion.router)
 
 @app.get("/")
 def root():

@@ -8,6 +8,7 @@ import {
   Stethoscope,
   UserPlus,
   Layers,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
@@ -16,7 +17,7 @@ export default function Sidebar() {
   const { user, roles } = useAuth();
 
   // 🔹 Definir jerarquía de roles (de mayor a menor prioridad)
-  const rolePriority = ["admin", "kinesiologo", "paciente"];
+  const rolePriority = ["admin", "recepcionista", "kinesiologo", "paciente"];
   const roleName =
     rolePriority.find((r) => roles.includes(r)) || "sin rol";
 
@@ -26,9 +27,17 @@ export default function Sidebar() {
       { name: "Dashboard", icon: <LayoutDashboard />, path: "/dashboard" },
       { name: "Usuarios", icon: <Users />, path: "/usuarios" },
       { name: "Turnos", icon: <Calendar />, path: "/turnos" },
+      { name: "Pacientes", icon: <Users />, path: "/pacientes" },
+      { name: "Kinesiólogos", icon: <Stethoscope />, path: "/kinesiologos" },
       { name: "Servicios", icon: <BarChart2 />, path: "/servicios" },
       { name: "Salas", icon: <Layers />, path: "/salas" },
       { name: "Roles", icon: <Shield />, path: "/roles" },
+    ],
+    recepcionista: [
+      { name: "Recepción", icon: <LayoutDashboard />, path: "/recepcion/dashboard" },
+      { name: "Turnos de Hoy", icon: <ClipboardList />, path: "/recepcion/turnos" },
+      { name: "Gestionar Turnos", icon: <Calendar />, path: "/turnos" },
+      { name: "Pacientes", icon: <Users />, path: "/pacientes" },
     ],
     kinesiologo: [
       { name: "Dashboard", icon: <LayoutDashboard />, path: "/dashboard" },
@@ -60,6 +69,8 @@ export default function Sidebar() {
               className={`font-medium ${
                 roleName === "admin"
                   ? "text-red-600"
+                  : roleName === "recepcionista"
+                  ? "text-purple-600"
                   : roleName === "kinesiologo"
                   ? "text-blue-600"
                   : "text-green-600"

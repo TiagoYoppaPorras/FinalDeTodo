@@ -16,28 +16,30 @@ export default function Login() {
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError("");
+// En Login.jsx
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setIsLoading(true);
+  setError("");
 
-    try {
-      // 🔹 1. Login contra el backend
-      const data = await loginUser(email, password);
-
-      // 🔹 2. Guarda el token (localStorage + contexto)
-      localStorage.setItem("token", data.access_token);
-      login(data.access_token); // actualiza el contexto
-
-      // 🔹 3. Redirige al dashboard
-      navigate("/dashboard");
-    } catch (err) {
-      console.error("Error en login:", err);
-      setError("Credenciales inválidas o token incorrecto.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  try {
+    const data = await loginUser(email, password);
+    
+    // Primero guardar token
+    localStorage.setItem("token", data.access_token);
+    
+    // Luego actualizar contexto (await para asegurar)
+    await login(data.access_token);
+    
+    // Por último navegar
+    navigate("/dashboard", { replace: true });
+  } catch (err) {
+    console.error("Error en login:", err);
+    setError("Credenciales inválidas");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-50 p-4">

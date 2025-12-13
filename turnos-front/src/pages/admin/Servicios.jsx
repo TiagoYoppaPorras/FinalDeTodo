@@ -1,12 +1,23 @@
 import { useEffect, useState } from "react";
 import MainLayout from "../../components/layout/MainLayout";
 import api from "../../api/Client";
-import { Layers, PlusCircle, Trash2 } from "lucide-react";
+import { Layers, PlusCircle, Trash2, Edit } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import EditModal from "../../components/common/EditModal";
 
 export default function Servicios() {
   const [servicios, setServicios] = useState([]);
-  const [nuevoServicio, setNuevoServicio] = useState({ nombre: "", description: "", duracion_minutos: "" });
+  const [nuevoServicio, setNuevoServicio] = useState({ 
+    nombre: "", 
+    description: "", 
+    duracion_minutos: "" 
+  });
+
+  // Estados para edición
+  const [editando, setEditando] = useState(null);
+  const [datosEdicion, setDatosEdicion] = useState({});
+  const [isLoadingSave, setIsLoadingSave] = useState(false);
+
   const { roles } = useAuth();
   const isAdmin = roles.includes("admin");
 
@@ -32,6 +43,34 @@ export default function Servicios() {
       fetchServicios();
     } catch (err) {
       console.error("❌ Error al crear servicio:", err);
+      alert("Error al crear servicio");
+    }
+  };
+
+  // --- 🔹 Abrir modal de edición ---
+  const handleEdit = (servicio) => {
+    setEditando(servicio.id);
+    setDatosEdicion({
+      nombre: servicio.nombre,
+      description: servicio.description,
+      duracion_minutos: servicio.duracion_minutos,
+    });
+  };
+
+  // --- 🔹 Guardar cambios de edición ---
+  const handleUpdate = async () => {
+    setIsLoadingSave(true);
+    try {
+      await api.put(`/servicios/${editando}`, datosEdicion);
+      alert("✅ Servicio actualizado correctamente");
+      setEditando(null);
+      setDatosEdicion({});
+      fetchServicios();
+    } catch (err) {
+      console.error("❌ Error actualizando servicio:", err);
+      alert("Error al actualizar servicio");
+    } finally {
+      setIsLoadingSave(false);
     }
   };
 
@@ -127,13 +166,21 @@ export default function Servicios() {
                       {s.duracion_minutos || "—"}
                     </td>
                     {isAdmin && (
-                      <td className="p-2 border text-center">
-                        <button
-                          onClick={() => handleDelete(s.id)}
-                          className="bg-red-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 justify-center hover:bg-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" /> Eliminar
-                        </button>
+                      <td className="p-2 border">
+                        <div className="flex gap-2 justify-center">
+                          <button
+                            onClick={() => handleEdit(s)}
+                            className="bg-yellow-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-yellow-600"
+                          >
+                            <Edit className="w-4 h-4" /> Editar
+                          </button>
+                          <button
+                            onClick={() => handleDelete(s.id)}
+                            className="bg-red-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-red-600"
+                          >
+                            <Trash2 className="w-4 h-4" /> Eliminar
+                          </button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -142,6 +189,62 @@ export default function Servicios() {
             </table>
           )}
         </div>
+
+        {/* 🔹 Modal de edición */}
+        <EditModal
+          isOpen={editando !== null}
+          onClose={() => {
+            setEditando(null);
+            setDatosEdicion({});
+          }}
+          title="Editar Servicio"
+          onSave={handleUpdate}
+          isLoading={isLoadingSave}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nombre del Servicio
+              </label>
+              <input
+                type="text"
+                className="w-full border border-gray-300 rounded-lg p-2"
+                value={datosEdicion.nombre || ""}
+                onChange={(e) =>
+                  setDatosEdicion({ ...datosEdicion, nombre: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Descripción
+              </label>
+              <textarea
+                className="w-full border border-gray-300 rounded-lg p-2"
+                rows="3"
+                value={datosEdicion.description || ""}
+                onChange={(e) =>
+                  setDatosEdicion({ ...datosEdicion, description: e.target.value })
+                }
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Duración (minutos)
+              </label>
+              <input
+                type="number"
+                className="w-full border border-gray-300 rounded-lg p-2"
+                value={datosEdicion.duracion_minutos || ""}
+                onChange={(e) =>
+                  setDatosEdicion({ ...datosEdicion, duracion_minutos: e.target.value })
+                }
+              />
+            </div>
+          </div>
+        </EditModal>
       </div>
     </MainLayout>
   );

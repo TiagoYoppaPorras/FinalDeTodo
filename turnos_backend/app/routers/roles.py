@@ -61,3 +61,25 @@ def asignar_rol_a_usuario(user_id: int, role_id: int, db: Session = Depends(get_
     db.refresh(user)
 
     return {"message": f"Rol '{rol.name}' asignado a {user.nombre} correctamente."}
+
+
+# 🗑️ Remover rol de usuario (solo admin)
+@router.delete("/{user_id}/roles/{role_id}", dependencies=[Depends(role_required("admin"))])
+def remover_rol_de_usuario(user_id: int, role_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    rol = db.query(Role).filter(Role.id == role_id).first()
+    if not rol:
+        raise HTTPException(status_code=404, detail="Rol no encontrado")
+
+    # Verificar si tiene ese rol
+    if not any(r.id == role_id for r in user.roles):
+        raise HTTPException(status_code=400, detail="El usuario no tiene ese rol asignado")
+
+    user.roles.remove(rol)
+    db.commit()
+    db.refresh(user)
+
+    return {"message": f"Rol '{rol.name}' removido de {user.nombre} correctamente."}
