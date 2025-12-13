@@ -13,24 +13,45 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
+      console.log("📝 No hay token guardado");
       setLoading(false);
       return;
     }
 
+    console.log("📝 Token encontrado, cargando usuario...");
+
     try {
       const decoded = jwtDecode(token);
       const userId = decoded.sub;
+      
+      console.log("📝 User ID del token:", userId);
 
       api
-        .get(`/usuarios/${userId}`, { params: { token } })
+        .get(`/usuarios/${userId}`)
         .then((res) => {
+          console.log("✅ RESPUESTA DEL BACKEND:", res.data);
+          console.log("✅ ROLES RECIBIDOS:", res.data.roles);
+          console.log("✅ TIPO DE ROLES:", typeof res.data.roles);
+          console.log("✅ ES ARRAY?:", Array.isArray(res.data.roles));
+          
           setUser(res.data);
-          setRoles(res.data.roles.map((r) => r.name));
+          
+          // CRÍTICO: Verificar que roles existe y es array
+          if (res.data.roles && Array.isArray(res.data.roles)) {
+            const rolesArray = res.data.roles.map((r) => r.name);
+            console.log("✅ ROLES MAPEADOS:", rolesArray);
+            setRoles(rolesArray);
+          } else {
+            console.error("❌ roles no es un array:", res.data.roles);
+            setRoles([]);
+          }
         })
-        .catch(() => {
-          console.warn("⚠️ Token inválido o expirado al inicializar sesión.");
+        .catch((err) => {
+          console.error("❌ Error al cargar usuario:", err);
+          console.error("❌ Detalles:", err.response?.data);
           localStorage.removeItem("token");
           setUser(null);
+          setRoles([]);
         })
         .finally(() => setLoading(false));
     } catch (err) {
@@ -42,19 +63,44 @@ export const AuthProvider = ({ children }) => {
 
   // --- 🔹 Login manual (al iniciar sesión) ---
   const login = async (token) => {
+    console.log("🔐 INICIANDO LOGIN...");
     localStorage.setItem("token", token);
 
     try {
       const decoded = jwtDecode(token);
       const userId = decoded.sub;
 
-      const res = await api.get(`/usuarios/${userId}`, { params: { token } });
+      console.log("🔐 User ID del token:", userId);
+
+      const res = await api.get(`/usuarios/${userId}`);
+      
+      console.log("🔐 RESPUESTA COMPLETA:", res.data);
+      console.log("🔐 ROLES EN RESPUESTA:", res.data.roles);
+      console.log("🔐 TIPO:", typeof res.data.roles, "ES ARRAY?:", Array.isArray(res.data.roles));
+
       setUser(res.data);
-      setRoles(res.data.roles.map((r) => r.name));
+      
+      // CRÍTICO: Verificar que roles existe
+      if (res.data.roles && Array.isArray(res.data.roles)) {
+        const rolesArray = res.data.roles.map((r) => r.name);
+        console.log("🔐 ROLES MAPEADOS:", rolesArray);
+        console.log("🔐 CANTIDAD DE ROLES:", rolesArray.length);
+        setRoles(rolesArray);
+        
+        // Guardar en localStorage para debugging
+        localStorage.setItem('debugRoles', JSON.stringify(rolesArray));
+      } else {
+        console.error("❌ roles no es un array válido");
+        setRoles([]);
+      }
+
+      console.log("✅ LOGIN COMPLETADO");
 
       return res.data;
     } catch (err) {
       console.error("❌ Error cargando usuario tras login:", err);
+      console.error("❌ Response:", err.response?.data);
+      console.error("❌ Status:", err.response?.status);
       throw err;
     }
   };
@@ -63,9 +109,10 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     console.log("🚪 Cerrando sesión...");
     localStorage.removeItem("token");
+    localStorage.removeItem("debugRoles");
     setUser(null);
     setRoles([]);
-    window.location.href = "/login"; // 🔁 redirección limpia
+    window.location.href = "/login";
   };
 
   return (

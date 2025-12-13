@@ -1,24 +1,34 @@
 import { useEffect, useState } from "react";
 import MainLayout from "../../components/layout/MainLayout";
 import api from "../../api/Client";
-import { User, PlusCircle, Trash2, Edit } from "lucide-react";
+import { Users, PlusCircle, Trash2, Edit, UserPlus, UserCheck } from "lucide-react";
 import EditModal from "../../components/common/EditModal";
 
 export default function Pacientes() {
   const [pacientes, setPacientes] = useState([]);
-  
-  // Estado para crear nuevo paciente
-  const [nuevoPaciente, setNuevoPaciente] = useState({
-    // Datos del usuario
+  const [usuariosDisponibles, setUsuariosDisponibles] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Estados para creación
+  const [modalCrearAbierto, setModalCrearAbierto] = useState(false);
+  const [modoCreacion, setModoCreacion] = useState("nuevo"); // "nuevo" o "existente"
+  const [formNuevo, setFormNuevo] = useState({
     nombre: "",
     email: "",
     password: "",
-    // Datos del paciente
     dni: "",
     telefono: "",
     obra_social: "",
-    direccion: "",
     historial_medico: "",
+    direccion: ""
+  });
+  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState("");
+  const [formExistente, setFormExistente] = useState({
+    dni: "",
+    telefono: "",
+    obra_social: "",
+    historial_medico: "",
+    direccion: ""
   });
 
   // Estados para edición
@@ -26,7 +36,7 @@ export default function Pacientes() {
   const [datosEdicion, setDatosEdicion] = useState({});
   const [isLoadingSave, setIsLoadingSave] = useState(false);
 
-  // 🔹 Obtener pacientes
+  // --- 🔹 Fetch pacientes ---
   const fetchPacientes = async () => {
     try {
       const res = await api.get("/pacientes/");
@@ -36,85 +46,98 @@ export default function Pacientes() {
     }
   };
 
-  useEffect(() => {
-    fetchPacientes();
-  }, []);
-
-  // 🔹 Crear paciente (primero usuario, luego paciente)
-  const handleCreate = async (e) => {
-    e.preventDefault();
+  // --- 🔹 Fetch usuarios disponibles ---
+  const fetchUsuariosDisponibles = async () => {
     try {
-      // 1️⃣ Crear usuario primero
-      const userResponse = await api.post("/auth/register", {
-        nombre: nuevoPaciente.nombre,
-        email: nuevoPaciente.email,
-        password: nuevoPaciente.password,
-      });
-
-      // 2️⃣ Crear paciente con el user_id
-      await api.post("/pacientes/", {
-        user_id: userResponse.data.id,
-        dni: nuevoPaciente.dni || null,
-        telefono: nuevoPaciente.telefono || null,
-        obra_social: nuevoPaciente.obra_social || null,
-        direccion: nuevoPaciente.direccion || null,
-        historial_medico: nuevoPaciente.historial_medico || null,
-      });
-
-      alert("✅ Paciente creado correctamente");
-      setNuevoPaciente({
-        nombre: "",
-        email: "",
-        password: "",
-        dni: "",
-        telefono: "",
-        obra_social: "",
-        direccion: "",
-        historial_medico: "",
-      });
-      fetchPacientes();
+      const res = await api.get("/pacientes/usuarios-disponibles");
+      setUsuariosDisponibles(res.data);
     } catch (err) {
-      console.error("❌ Error creando paciente:", err);
-      alert("Error al crear paciente. Revisa la consola.");
+      console.error("❌ Error cargando usuarios disponibles:", err);
     }
   };
 
-  // 🔹 Abrir modal de edición
-  const handleEdit = (paciente) => {
-    setEditando(paciente.id);
-    setDatosEdicion({
-      // Datos del usuario
-      user_id: paciente.user_id,
-      nombre: paciente.user?.nombre || "",
-      email: paciente.user?.email || "",
-      // Datos del paciente
-      dni: paciente.dni || "",
-      telefono: paciente.telefono || "",
-      obra_social: paciente.obra_social || "",
-      direccion: paciente.direccion || "",
-      historial_medico: paciente.historial_medico || "",
+  useEffect(() => {
+    const cargarDatos = async () => {
+      setLoading(true);
+      await Promise.all([fetchPacientes(), fetchUsuariosDisponibles()]);
+      setLoading(false);
+    };
+    cargarDatos();
+  }, []);
+
+  // --- 🔹 Abrir modal de creación ---
+  const abrirModalCrear = () => {
+    setModalCrearAbierto(true);
+    setModoCreacion("nuevo");
+    setFormNuevo({
+      nombre: "",
+      email: "",
+      password: "",
+      dni: "",
+      telefono: "",
+      obra_social: "",
+      historial_medico: "",
+      direccion: ""
+    });
+    setUsuarioSeleccionado("");
+    setFormExistente({
+      dni: "",
+      telefono: "",
+      obra_social: "",
+      historial_medico: "",
+      direccion: ""
     });
   };
 
-  // 🔹 Guardar cambios de edición
+  // --- 🔹 Crear paciente ---
+  const handleCrear = async () => {
+    setIsLoadingSave(true);
+    try {
+      if (modoCreacion === "nuevo") {
+        // Crear usuario nuevo + paciente
+        await api.post("/pacientes/con-usuario", formNuevo);
+        alert("✅ Paciente creado correctamente");
+      } else {
+        // Asociar a usuario existente
+        if (!usuarioSeleccionado) {
+          alert("⚠️ Debes seleccionar un usuario");
+          setIsLoadingSave(false);
+          return;
+        }
+        await api.post("/pacientes/", {
+          user_id: parseInt(usuarioSeleccionado),
+          ...formExistente
+        });
+        alert("✅ Paciente asociado correctamente");
+      }
+      
+      setModalCrearAbierto(false);
+      await Promise.all([fetchPacientes(), fetchUsuariosDisponibles()]);
+    } catch (err) {
+      console.error("❌ Error creando paciente:", err);
+      alert(err.response?.data?.detail || "Error al crear paciente");
+    } finally {
+      setIsLoadingSave(false);
+    }
+  };
+
+  // --- 🔹 Abrir modal de edición ---
+  const handleEdit = (paciente) => {
+    setEditando(paciente.id);
+    setDatosEdicion({
+      dni: paciente.dni || "",
+      telefono: paciente.telefono || "",
+      obra_social: paciente.obra_social || "",
+      historial_medico: paciente.historial_medico || "",
+      direccion: paciente.direccion || ""
+    });
+  };
+
+  // --- 🔹 Actualizar paciente ---
   const handleUpdate = async () => {
     setIsLoadingSave(true);
     try {
-      // 1️⃣ Actualizar usuario
-      await api.put(`/usuarios/${datosEdicion.user_id}`, {
-        nombre: datosEdicion.nombre,
-        email: datosEdicion.email,
-      });
-
-      // 2️⃣ Actualizar paciente
-      await api.put(`/pacientes/${editando}`, {
-        dni: datosEdicion.dni || null,
-        telefono: datosEdicion.telefono || null,
-        obra_social: datosEdicion.obra_social || null,
-        direccion: datosEdicion.direccion || null,
-        historial_medico: datosEdicion.historial_medico || null,
-      });
-
+      await api.put(`/pacientes/${editando}`, datosEdicion);
       alert("✅ Paciente actualizado correctamente");
       setEditando(null);
       setDatosEdicion({});
@@ -127,140 +150,44 @@ export default function Pacientes() {
     }
   };
 
-  // 🔹 Eliminar paciente
+  // --- 🔹 Eliminar paciente ---
   const handleDelete = async (id) => {
-    if (!confirm("¿Eliminar paciente? Esto también eliminará su usuario.")) return;
+    if (!confirm("¿Eliminar paciente?")) return;
     try {
       await api.delete(`/pacientes/${id}`);
       fetchPacientes();
+      fetchUsuariosDisponibles();
       alert("✅ Paciente eliminado");
     } catch (err) {
-      console.error("Error eliminando paciente:", err);
+      console.error("❌ Error eliminando paciente:", err);
       alert("Error al eliminar paciente");
     }
   };
 
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="p-6 text-gray-600">Cargando pacientes...</div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       <div className="p-6 space-y-6">
-        <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-          <User className="text-blue-600 w-6 h-6" /> Gestión de Pacientes
-        </h1>
-
-        {/* 🔹 Formulario de creación */}
-        <form
-          onSubmit={handleCreate}
-          className="bg-white p-6 border rounded-lg shadow-sm space-y-4"
-        >
-          <h3 className="font-semibold text-gray-700 border-b pb-2">
-            Nuevo Paciente
-          </h3>
-
-          {/* Datos del Usuario */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium text-gray-600">
-              📋 Datos de Usuario
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <input
-                type="text"
-                placeholder="Nombre completo *"
-                className="border p-2 rounded"
-                value={nuevoPaciente.nombre}
-                onChange={(e) =>
-                  setNuevoPaciente({ ...nuevoPaciente, nombre: e.target.value })
-                }
-                required
-              />
-              <input
-                type="email"
-                placeholder="Correo electrónico *"
-                className="border p-2 rounded"
-                value={nuevoPaciente.email}
-                onChange={(e) =>
-                  setNuevoPaciente({ ...nuevoPaciente, email: e.target.value })
-                }
-                required
-              />
-              <input
-                type="password"
-                placeholder="Contraseña *"
-                className="border p-2 rounded"
-                value={nuevoPaciente.password}
-                onChange={(e) =>
-                  setNuevoPaciente({ ...nuevoPaciente, password: e.target.value })
-                }
-                required
-              />
-            </div>
-          </div>
-
-          {/* Datos del Paciente */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium text-gray-600">
-              🏥 Datos del Paciente
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input
-                type="text"
-                placeholder="DNI"
-                className="border p-2 rounded"
-                value={nuevoPaciente.dni}
-                onChange={(e) =>
-                  setNuevoPaciente({ ...nuevoPaciente, dni: e.target.value })
-                }
-              />
-              <input
-                type="tel"
-                placeholder="Teléfono"
-                className="border p-2 rounded"
-                value={nuevoPaciente.telefono}
-                onChange={(e) =>
-                  setNuevoPaciente({ ...nuevoPaciente, telefono: e.target.value })
-                }
-              />
-              <input
-                type="text"
-                placeholder="Obra Social"
-                className="border p-2 rounded"
-                value={nuevoPaciente.obra_social}
-                onChange={(e) =>
-                  setNuevoPaciente({ ...nuevoPaciente, obra_social: e.target.value })
-                }
-              />
-              <input
-                type="text"
-                placeholder="Dirección"
-                className="border p-2 rounded"
-                value={nuevoPaciente.direccion}
-                onChange={(e) =>
-                  setNuevoPaciente({ ...nuevoPaciente, direccion: e.target.value })
-                }
-              />
-              <textarea
-                placeholder="Historial Médico"
-                className="border p-2 rounded md:col-span-2"
-                rows="3"
-                value={nuevoPaciente.historial_medico}
-                onChange={(e) =>
-                  setNuevoPaciente({
-                    ...nuevoPaciente,
-                    historial_medico: e.target.value,
-                  })
-                }
-              />
-            </div>
-          </div>
-
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
+            <Users className="text-blue-600 w-6 h-6" /> Gestión de Pacientes
+          </h1>
           <button
-            type="submit"
+            onClick={abrirModalCrear}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
           >
             <PlusCircle className="w-5 h-5" /> Crear Paciente
           </button>
-        </form>
+        </div>
 
-        {/* 🔹 Tabla de pacientes */}
+        {/* Tabla de pacientes */}
         <div className="bg-white border rounded-lg shadow-sm p-6">
           {pacientes.length === 0 ? (
             <p className="text-gray-500">No hay pacientes registrados.</p>
@@ -269,26 +196,23 @@ export default function Pacientes() {
               <table className="w-full border text-sm">
                 <thead className="bg-gray-100 text-gray-700">
                   <tr>
-                    <th className="p-2 border">ID</th>
                     <th className="p-2 border">Nombre</th>
                     <th className="p-2 border">Email</th>
                     <th className="p-2 border">DNI</th>
                     <th className="p-2 border">Teléfono</th>
                     <th className="p-2 border">Obra Social</th>
-                    <th className="p-2 border">Historial Medico</th>
                     <th className="p-2 border">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pacientes.map((p) => (
                     <tr key={p.id} className="border-t hover:bg-gray-50">
-                      <td className="p-2 border text-center">{p.id}</td>
-                      <td className="p-2 border">{p.user?.nombre || "—"}</td>
-                      <td className="p-2 border">{p.user?.email || "—"}</td>
-                      <td className="p-2 border">{p.dni || "—"}</td>
-                      <td className="p-2 border">{p.telefono || "—"}</td>
-                      <td className="p-2 border">{p.obra_social || "—"}</td>
-                      <td className="p-2 border">{p.historial_medico || "—"}</td>
+                      <td className="p-2 border">{p.user?.nombre || "N/A"}</td>
+                      <td className="p-2 border">{p.user?.email || "N/A"}</td>
+                      <td className="p-2 border">{p.dni || "-"}</td>
+                      <td className="p-2 border">{p.telefono || "-"}</td>
+                      <td className="p-2 border">{p.obra_social || "-"}</td>
+                      <td className="p-2 border">{p.historial_medico || "-"}</td>
                       <td className="p-2 border">
                         <div className="flex gap-2 justify-center">
                           <button
@@ -313,7 +237,196 @@ export default function Pacientes() {
           )}
         </div>
 
-        {/* 🔹 Modal de edición */}
+        {/* Modal de creación */}
+        <EditModal
+          isOpen={modalCrearAbierto}
+          onClose={() => setModalCrearAbierto(false)}
+          title="Crear Paciente"
+          onSave={handleCrear}
+          isLoading={isLoadingSave}
+        >
+          <div className="space-y-4">
+            {/* Selector de modo */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-semibold text-gray-700 mb-3">Modo de Creación</h4>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="modo"
+                    value="nuevo"
+                    checked={modoCreacion === "nuevo"}
+                    onChange={(e) => setModoCreacion(e.target.value)}
+                    className="w-4 h-4"
+                  />
+                  <UserPlus className="w-5 h-5 text-green-600" />
+                  <span className="text-sm font-medium">Crear Usuario Nuevo</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="modo"
+                    value="existente"
+                    checked={modoCreacion === "existente"}
+                    onChange={(e) => setModoCreacion(e.target.value)}
+                    className="w-4 h-4"
+                  />
+                  <UserCheck className="w-5 h-5 text-blue-600" />
+                  <span className="text-sm font-medium">Asociar a Usuario Existente</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Formulario para crear usuario nuevo */}
+            {modoCreacion === "nuevo" && (
+              <>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <h5 className="font-medium text-gray-700 mb-2">Datos del Usuario</h5>
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      placeholder="Nombre completo"
+                      className="w-full border border-gray-300 rounded-lg p-2"
+                      value={formNuevo.nombre}
+                      onChange={(e) => setFormNuevo({ ...formNuevo, nombre: e.target.value })}
+                    />
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      className="w-full border border-gray-300 rounded-lg p-2"
+                      value={formNuevo.email}
+                      onChange={(e) => setFormNuevo({ ...formNuevo, email: e.target.value })}
+                    />
+                    <input
+                      type="password"
+                      placeholder="Contraseña"
+                      className="w-full border border-gray-300 rounded-lg p-2"
+                      value={formNuevo.password}
+                      onChange={(e) => setFormNuevo({ ...formNuevo, password: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <h5 className="font-medium text-gray-700 mb-2">Datos del Paciente</h5>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="DNI"
+                      className="border border-gray-300 rounded-lg p-2"
+                      value={formNuevo.dni}
+                      onChange={(e) => setFormNuevo({ ...formNuevo, dni: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Teléfono"
+                      className="border border-gray-300 rounded-lg p-2"
+                      value={formNuevo.telefono}
+                      onChange={(e) => setFormNuevo({ ...formNuevo, telefono: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Obra Social"
+                      className="border border-gray-300 rounded-lg p-2"
+                      value={formNuevo.obra_social}
+                      onChange={(e) => setFormNuevo({ ...formNuevo, obra_social: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Dirección"
+                      className="border border-gray-300 rounded-lg p-2"
+                      value={formNuevo.direccion}
+                      onChange={(e) => setFormNuevo({ ...formNuevo, direccion: e.target.value })}
+                    />
+                  </div>
+                  <textarea
+                    placeholder="Historial Médico"
+                    className="w-full border border-gray-300 rounded-lg p-2 mt-3"
+                    rows="3"
+                    value={formNuevo.historial_medico}
+                    onChange={(e) => setFormNuevo({ ...formNuevo, historial_medico: e.target.value })}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Formulario para asociar a usuario existente */}
+            {modoCreacion === "existente" && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Seleccionar Usuario
+                  </label>
+                  {usuariosDisponibles.length === 0 ? (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+                      ⚠️ No hay usuarios con rol "paciente" disponibles.
+                      <br />
+                      Primero crea un usuario y asígnale el rol "paciente" desde Gestión de Usuarios.
+                    </div>
+                  ) : (
+                    <select
+                      className="w-full border border-gray-300 rounded-lg p-2"
+                      value={usuarioSeleccionado}
+                      onChange={(e) => setUsuarioSeleccionado(e.target.value)}
+                    >
+                      <option value="">-- Seleccionar --</option>
+                      {usuariosDisponibles.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.nombre} ({u.email})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {usuariosDisponibles.length > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <h5 className="font-medium text-gray-700 mb-2">Datos del Paciente</h5>
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        placeholder="DNI"
+                        className="border border-gray-300 rounded-lg p-2"
+                        value={formExistente.dni}
+                        onChange={(e) => setFormExistente({ ...formExistente, dni: e.target.value })}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Teléfono"
+                        className="border border-gray-300 rounded-lg p-2"
+                        value={formExistente.telefono}
+                        onChange={(e) => setFormExistente({ ...formExistente, telefono: e.target.value })}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Obra Social"
+                        className="border border-gray-300 rounded-lg p-2"
+                        value={formExistente.obra_social}
+                        onChange={(e) => setFormExistente({ ...formExistente, obra_social: e.target.value })}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Dirección"
+                        className="border border-gray-300 rounded-lg p-2"
+                        value={formExistente.direccion}
+                        onChange={(e) => setFormExistente({ ...formExistente, direccion: e.target.value })}
+                      />
+                    </div>
+                    <textarea
+                      placeholder="Historial Médico"
+                      className="w-full border border-gray-300 rounded-lg p-2 mt-3"
+                      rows="3"
+                      value={formExistente.historial_medico}
+                      onChange={(e) => setFormExistente({ ...formExistente, historial_medico: e.target.value })}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </EditModal>
+
+        {/* Modal de edición */}
         <EditModal
           isOpen={editando !== null}
           onClose={() => {
@@ -325,119 +438,52 @@ export default function Pacientes() {
           isLoading={isLoadingSave}
         >
           <div className="space-y-4">
-            {/* Datos del Usuario */}
-            <div className="border-b pb-3">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                📋 Datos de Usuario
-              </h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Nombre Completo
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full border border-gray-300 rounded-lg p-2"
-                    value={datosEdicion.nombre || ""}
-                    onChange={(e) =>
-                      setDatosEdicion({ ...datosEdicion, nombre: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    className="w-full border border-gray-300 rounded-lg p-2"
-                    value={datosEdicion.email || ""}
-                    onChange={(e) =>
-                      setDatosEdicion({ ...datosEdicion, email: e.target.value })
-                    }
-                  />
-                </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">DNI</label>
+                <input
+                  type="text"
+                  className="w-full border border-gray-300 rounded-lg p-2"
+                  value={datosEdicion.dni || ""}
+                  onChange={(e) => setDatosEdicion({ ...datosEdicion, dni: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                <input
+                  type="text"
+                  className="w-full border border-gray-300 rounded-lg p-2"
+                  value={datosEdicion.telefono || ""}
+                  onChange={(e) => setDatosEdicion({ ...datosEdicion, telefono: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Obra Social</label>
+                <input
+                  type="text"
+                  className="w-full border border-gray-300 rounded-lg p-2"
+                  value={datosEdicion.obra_social || ""}
+                  onChange={(e) => setDatosEdicion({ ...datosEdicion, obra_social: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                <input
+                  type="text"
+                  className="w-full border border-gray-300 rounded-lg p-2"
+                  value={datosEdicion.direccion || ""}
+                  onChange={(e) => setDatosEdicion({ ...datosEdicion, direccion: e.target.value })}
+                />
               </div>
             </div>
-
-            {/* Datos del Paciente */}
             <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                🏥 Datos del Paciente
-              </h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">
-                    DNI
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full border border-gray-300 rounded-lg p-2"
-                    value={datosEdicion.dni || ""}
-                    onChange={(e) =>
-                      setDatosEdicion({ ...datosEdicion, dni: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Teléfono
-                  </label>
-                  <input
-                    type="tel"
-                    className="w-full border border-gray-300 rounded-lg p-2"
-                    value={datosEdicion.telefono || ""}
-                    onChange={(e) =>
-                      setDatosEdicion({ ...datosEdicion, telefono: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Obra Social
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full border border-gray-300 rounded-lg p-2"
-                    value={datosEdicion.obra_social || ""}
-                    onChange={(e) =>
-                      setDatosEdicion({
-                        ...datosEdicion,
-                        obra_social: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Dirección
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full border border-gray-300 rounded-lg p-2"
-                    value={datosEdicion.direccion || ""}
-                    onChange={(e) =>
-                      setDatosEdicion({ ...datosEdicion, direccion: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Historial Médico
-                  </label>
-                  <textarea
-                    className="w-full border border-gray-300 rounded-lg p-2"
-                    rows="3"
-                    value={datosEdicion.historial_medico || ""}
-                    onChange={(e) =>
-                      setDatosEdicion({
-                        ...datosEdicion,
-                        historial_medico: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Historial Médico</label>
+              <textarea
+                className="w-full border border-gray-300 rounded-lg p-2"
+                rows="4"
+                value={datosEdicion.historial_medico || ""}
+                onChange={(e) => setDatosEdicion({ ...datosEdicion, historial_medico: e.target.value })}
+              />
             </div>
           </div>
         </EditModal>

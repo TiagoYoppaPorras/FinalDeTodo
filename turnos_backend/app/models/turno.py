@@ -9,6 +9,7 @@ class EstadoTurno(str, enum.Enum):
     confirmado = "confirmado"
     cancelado = "cancelado"
     finalizado = "finalizado"
+    completado = "completado"
 
 class Turno(Base):
     __tablename__ = "turnos"

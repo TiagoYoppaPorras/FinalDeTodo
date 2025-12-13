@@ -16,10 +16,19 @@ export default function Sidebar() {
   const location = useLocation();
   const { user, roles } = useAuth();
 
+  // 🔍 DEBUG LOGS
+  console.log("🎯 SIDEBAR - Usuario:", user);
+  console.log("🎯 SIDEBAR - Roles array:", roles);
+  console.log("🎯 SIDEBAR - Tipo de roles:", typeof roles);
+  console.log("🎯 SIDEBAR - Es array?:", Array.isArray(roles));
+  console.log("🎯 SIDEBAR - Longitud:", roles?.length);
+
   // 🔹 Definir jerarquía de roles (de mayor a menor prioridad)
   const rolePriority = ["admin", "recepcionista", "kinesiologo", "paciente"];
-  const roleName =
-    rolePriority.find((r) => roles.includes(r)) || "sin rol";
+  const roleName = rolePriority.find((r) => roles.includes(r)) || "sin rol";
+
+  console.log("🎯 SIDEBAR - Rol detectado:", roleName);
+  console.log("🎯 SIDEBAR - ¿Incluye 'recepcionista'?:", roles.includes("recepcionista"));
 
   // 🔹 Menús separados por rol principal
   const menuByRole = {
@@ -56,6 +65,8 @@ export default function Sidebar() {
   const menuItems = menuByRole[roleName] || [
     { name: "Dashboard", icon: <LayoutDashboard />, path: "/dashboard" },
   ];
+
+  console.log("🎯 SIDEBAR - Menu items:", menuItems.length, "items");
 
   return (
     <aside className="w-64 bg-white border-r flex flex-col shadow-sm">
