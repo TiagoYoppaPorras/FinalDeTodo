@@ -12,7 +12,9 @@ import Servicios from "../pages/admin/Servicios";
 import Salas from "../pages/admin/Salas";
 import MisTurnosPaciente from "../pages/MisTurnosPaciente";
 import NuevoTurnoPaciente from "../pages/NuevoTurnoPaciente";
-
+import HistoriasClinicas from "../pages/admin/HistoriasClinicas";
+import TimelinePaciente from "../pages/admin/TimelinePaciente";
+import CalendarioTurnos from "../pages/admin/CalendarioTurnos";
 // Rutas de recepcionista
 import DashboardRecepcionista from "../pages/recepcionista/DashboardRecepcionista";
 import TurnosRecepcion from "../pages/recepcionista/TurnosRecepcion";
@@ -99,6 +101,13 @@ export default function App() {
               </PrivateRoute>
             }
           />
+
+          <Route path="/historias-clinicas" element={<PrivateRoute><HistoriasClinicas /></PrivateRoute>} />
+<Route path="/historias-clinicas/timeline/:pacienteId" element={<PrivateRoute><TimelinePaciente /></PrivateRoute>} />
+<Route 
+  path="/calendario" 
+  element={<PrivateRoute><CalendarioTurnos /></PrivateRoute>} 
+/>
 
           {/* 🔹 Panel Recepcionista */}
           <Route

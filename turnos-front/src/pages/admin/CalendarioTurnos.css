@@ -1,0 +1,325 @@
+/* ==========================================
+   ESTILOS PERSONALIZADOS PARA CALENDARIO
+   ========================================== */
+
+.calendario-container {
+  /* Asegurar que el calendario se vea bien */
+  min-height: 700px;
+}
+
+/* Mejorar apariencia general del calendario */
+.rbc-calendar {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Header del calendario (nombre de los días) */
+.rbc-header {
+  padding: 10px 5px;
+  font-weight: 600;
+  color: #374151;
+  background-color: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+/* Botones de navegación */
+.rbc-toolbar button {
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 6px 12px;
+  margin: 0 4px;
+  background-color: white;
+  transition: all 0.2s;
+}
+
+.rbc-toolbar button:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.rbc-toolbar button.rbc-active {
+  background-color: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.rbc-toolbar button.rbc-active:hover {
+  background-color: #2563eb;
+}
+
+/* Texto del toolbar */
+.rbc-toolbar-label {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  text-transform: capitalize;
+}
+
+/* Celdas del calendario */
+.rbc-day-bg {
+  transition: background-color 0.2s;
+}
+
+.rbc-day-bg:hover {
+  background-color: #f9fafb;
+}
+
+/* Hoy */
+.rbc-today {
+  background-color: #dbeafe !important;
+}
+
+/* Días del mes anterior/siguiente */
+.rbc-off-range-bg {
+  background-color: #f9fafb;
+}
+
+/* Eventos (turnos) */
+.rbc-event {
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.rbc-event:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+/* Label del evento */
+.rbc-event-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Contenido del evento */
+.rbc-event-content {
+  font-weight: 500;
+}
+
+/* Vista de agenda */
+.rbc-agenda-view {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.rbc-agenda-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.rbc-agenda-date-cell,
+.rbc-agenda-time-cell {
+  padding: 8px;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+.rbc-agenda-event-cell {
+  padding: 8px;
+}
+
+/* Vista de semana y día */
+.rbc-time-slot {
+  border-top: 1px solid #f3f4f6;
+}
+
+.rbc-time-header-content {
+  border-left: 1px solid #e5e7eb;
+}
+
+.rbc-time-content {
+  border-top: 2px solid #e5e7eb;
+}
+
+/* Línea de tiempo actual */
+.rbc-current-time-indicator {
+  background-color: #ef4444;
+  height: 2px;
+}
+
+/* Selección de slot */
+.rbc-slot-selection {
+  background-color: rgba(59, 130, 246, 0.2);
+  border: 2px dashed #3b82f6;
+}
+
+/* Mostrar "más eventos" */
+.rbc-show-more {
+  background-color: transparent;
+  color: #3b82f6;
+  font-weight: 600;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background-color 0.2s;
+}
+
+.rbc-show-more:hover {
+  background-color: #dbeafe;
+}
+
+/* Overlay de eventos (cuando hay muchos en un día) */
+.rbc-overlay {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  max-width: 300px;
+}
+
+.rbc-overlay-header {
+  border-bottom: 2px solid #e5e7eb;
+  padding: 8px 12px;
+  font-weight: 600;
+  background-color: #f9fafb;
+  border-radius: 8px 8px 0 0;
+}
+
+/* Drag & Drop - Feedback visual */
+.rbc-addons-dnd-dragging {
+  opacity: 0.5;
+  cursor: move !important;
+}
+
+.rbc-addons-dnd-drag-preview {
+  opacity: 0.8;
+  transform: scale(1.05);
+}
+
+.rbc-addons-dnd-over {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+/* Resize handles */
+.rbc-addons-dnd-resize-ns-anchor {
+  cursor: ns-resize;
+  height: 8px;
+}
+
+.rbc-addons-dnd-resize-ns-anchor:hover {
+  background-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Estados específicos de eventos */
+.rbc-event.evento-pendiente {
+  background-color: #eab308 !important;
+  border-left: 4px solid #ca8a04;
+}
+
+.rbc-event.evento-confirmado {
+  background-color: #22c55e !important;
+  border-left: 4px solid #16a34a;
+}
+
+.rbc-event.evento-cancelado {
+  background-color: #ef4444 !important;
+  border-left: 4px solid #dc2626;
+  opacity: 0.7;
+  text-decoration: line-through;
+}
+
+.rbc-event.evento-completado {
+  background-color: #3b82f6 !important;
+  border-left: 4px solid #2563eb;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .rbc-toolbar {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .rbc-toolbar-label {
+    font-size: 1rem;
+    order: -1;
+  }
+
+  .rbc-event {
+    font-size: 0.75rem;
+    padding: 2px 4px;
+  }
+
+  .calendario-container {
+    min-height: 500px;
+  }
+}
+
+/* Animaciones suaves */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rbc-event {
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* Mejoras de accesibilidad */
+.rbc-event:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.rbc-toolbar button:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Tooltip mejorado */
+.rbc-event-content::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #1f2937;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.rbc-event:hover .rbc-event-content::before {
+  opacity: 1;
+}
+
+/* Loading spinner (opcional) */
+.calendario-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 700px;
+}
+
+.calendario-loading-spinner {
+  border: 4px solid #f3f4f6;
+  border-top: 4px solid #3b82f6;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}

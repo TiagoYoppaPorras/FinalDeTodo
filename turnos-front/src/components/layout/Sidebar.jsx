@@ -11,24 +11,20 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { FileText } from "lucide-react"; 
+
 
 export default function Sidebar() {
   const location = useLocation();
   const { user, roles } = useAuth();
 
-  // 🔍 DEBUG LOGS
-  console.log("🎯 SIDEBAR - Usuario:", user);
-  console.log("🎯 SIDEBAR - Roles array:", roles);
-  console.log("🎯 SIDEBAR - Tipo de roles:", typeof roles);
-  console.log("🎯 SIDEBAR - Es array?:", Array.isArray(roles));
-  console.log("🎯 SIDEBAR - Longitud:", roles?.length);
+
 
   // 🔹 Definir jerarquía de roles (de mayor a menor prioridad)
   const rolePriority = ["admin", "recepcionista", "kinesiologo", "paciente"];
   const roleName = rolePriority.find((r) => roles.includes(r)) || "sin rol";
 
-  console.log("🎯 SIDEBAR - Rol detectado:", roleName);
-  console.log("🎯 SIDEBAR - ¿Incluye 'recepcionista'?:", roles.includes("recepcionista"));
+
 
   // 🔹 Menús separados por rol principal
   const menuByRole = {
@@ -41,18 +37,23 @@ export default function Sidebar() {
       { name: "Servicios", icon: <BarChart2 />, path: "/servicios" },
       { name: "Salas", icon: <Layers />, path: "/salas" },
       { name: "Roles", icon: <Shield />, path: "/roles" },
+      { name: "Historias Clínicas", icon: <FileText />, path: "/historias-clinicas" },
+      { name: "Calendario", icon: <Calendar />, path: "/calendario" },
     ],
     recepcionista: [
       { name: "Recepción", icon: <LayoutDashboard />, path: "/recepcion/dashboard" },
       { name: "Turnos de Hoy", icon: <ClipboardList />, path: "/recepcion/turnos" },
       { name: "Gestionar Turnos", icon: <Calendar />, path: "/turnos" },
       { name: "Pacientes", icon: <Users />, path: "/pacientes" },
+      { name: "Calendario", icon: <Calendar />, path: "/calendario" },
     ],
     kinesiologo: [
       { name: "Dashboard", icon: <LayoutDashboard />, path: "/dashboard" },
+      { name: "Historias Clínicas", icon: <FileText />, path: "/historias-clinicas" },
       { name: "Mis Turnos", icon: <Stethoscope />, path: "/turnos" },
       { name: "Servicios", icon: <BarChart2 />, path: "/servicios" },
       { name: "Salas", icon: <Layers />, path: "/salas" },
+      { name: "Calendario", icon: <Calendar />, path: "/calendario" },
     ],
     paciente: [
       { name: "Dashboard", icon: <LayoutDashboard />, path: "/dashboard" },

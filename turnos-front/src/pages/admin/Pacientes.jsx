@@ -3,11 +3,14 @@ import MainLayout from "../../components/layout/MainLayout";
 import api from "../../api/Client";
 import { Users, PlusCircle, Trash2, Edit, UserPlus, UserCheck } from "lucide-react";
 import EditModal from "../../components/common/EditModal";
+import { FileText } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function Pacientes() {
   const [pacientes, setPacientes] = useState([]);
   const [usuariosDisponibles, setUsuariosDisponibles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   // Estados para creación
   const [modalCrearAbierto, setModalCrearAbierto] = useState(false);
@@ -227,6 +230,13 @@ export default function Pacientes() {
                           >
                             <Trash2 className="w-4 h-4" /> Eliminar
                           </button>
+                          <button
+      onClick={() => navigate(`/historias-clinicas?paciente_id=${p.id}`)}
+      className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
+      title="Ver historias clínicas"
+    >
+      <FileText className="w-4 h-4" />
+    </button>
                         </div>
                       </td>
                     </tr>

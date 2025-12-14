@@ -19,3 +19,10 @@ class Paciente(Base):
 
     # 🔗 Relación con turnos (si la usás)
     turnos = relationship("Turno", back_populates="paciente", cascade="all, delete-orphan")
+
+    historias_clinicas = relationship(
+        "HistoriaClinica",
+        back_populates="paciente",
+        cascade="all, delete-orphan"
+    )
+

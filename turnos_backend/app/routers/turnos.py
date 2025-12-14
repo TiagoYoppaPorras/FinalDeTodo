@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from typing import Optional, List
-
 from app.database import get_db
 
 # MODELOS
@@ -210,3 +209,86 @@ def eliminar_turno(turno_id: int, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": f"Turno #{turno_id} eliminado correctamente."}
+
+
+@router.get("/calendario/", response_model=list[TurnoOut])
+def obtener_turnos_calendario(
+    fecha_inicio: date,
+    fecha_fin: date,
+    kinesiologo_id: Optional[int] = None,
+    sala_id: Optional[int] = None,
+    estado: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Obtener turnos en un rango de fechas para vista de calendario.
+    """
+    
+    # Query base
+    query = db.query(Turno).options(
+        joinedload(Turno.paciente).joinedload(Paciente.user),
+        joinedload(Turno.kinesiologo).joinedload(Kinesiologo.user),
+        joinedload(Turno.servicio),
+        joinedload(Turno.sala)
+    ).filter(
+        Turno.fecha >= fecha_inicio,
+        Turno.fecha <= fecha_fin
+    )
+    
+    # Filtros opcionales
+    if kinesiologo_id:
+        query = query.filter(Turno.kinesiologo_id == kinesiologo_id)
+    
+    if sala_id:
+        query = query.filter(Turno.sala_id == sala_id)
+    
+    if estado:
+        query = query.filter(Turno.estado == estado)
+    
+    # Ordenar por fecha y hora
+    turnos = query.order_by(Turno.fecha, Turno.hora_inicio).all()
+    
+    return turnos
+
+
+@router.put("/{turno_id}/mover", response_model=TurnoOut)
+def mover_turno(
+    turno_id: int,
+    nueva_fecha: date,
+    nueva_hora_inicio: str,
+    nueva_hora_fin: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Mover un turno a una nueva fecha/hora (para drag & drop)
+    """
+    
+    turno = db.query(Turno).filter(Turno.id == turno_id).first()
+    
+    if not turno:
+        raise HTTPException(status_code=404, detail="Turno no encontrado")
+    
+    # Actualizar fecha y hora
+    turno.fecha = nueva_fecha
+    turno.hora_inicio = nueva_hora_inicio
+    
+    if nueva_hora_fin:
+        turno.hora_fin = nueva_hora_fin
+    
+    db.commit()
+    db.refresh(turno)
+    
+    # Recargar con relaciones
+    turno = (
+        db.query(Turno)
+        .options(
+            joinedload(Turno.paciente).joinedload(Paciente.user),
+            joinedload(Turno.kinesiologo).joinedload(Kinesiologo.user),
+            joinedload(Turno.servicio),
+            joinedload(Turno.sala)
+        )
+        .filter(Turno.id == turno_id)
+        .first()
+    )
+    
+    return turno

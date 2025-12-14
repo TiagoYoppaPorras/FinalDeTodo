@@ -31,3 +31,8 @@ class Turno(Base):
     kinesiologo = relationship("Kinesiologo", back_populates="turnos")
     servicio = relationship("Servicio", back_populates="turnos")
     sala = relationship("Sala", back_populates="turnos")
+    historia_clinica = relationship(
+        "HistoriaClinica",
+        back_populates="turno",
+        uselist=False
+    )
