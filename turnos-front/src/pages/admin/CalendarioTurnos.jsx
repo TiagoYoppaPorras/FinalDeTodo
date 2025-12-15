@@ -16,6 +16,7 @@ import {
   FileText,
 } from "lucide-react";
 import "./CalendarioTurnos.css"; // Estilos personalizados
+import { useNavigate } from "react-router-dom";
 
 // Configurar moment en español
 moment.locale("es");
@@ -43,6 +44,7 @@ export default function CalendarioTurnos() {
   const [kinesiologos, setKinesiologos] = useState([]);
   const [salas, setSalas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   // Filtros
   const [filtroKinesiologo, setFiltroKinesiologo] = useState("");
@@ -490,14 +492,11 @@ export default function CalendarioTurnos() {
                   Cerrar
                 </button>
                 <button
-                  onClick={() => {
-                    // Redirigir a edición (implementar según tu flujo)
-                    window.location.href = `/turnos?edit=${turnoSeleccionado.id}`;
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-1"
-                >
-                  <Edit2 className="w-4 h-4" /> Editar
-                </button>
+      onClick={() => navigate("/turnos")}
+      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-1"
+    >
+      <Edit2 className="w-4 h-4" /> Editar
+    </button>
               </div>
             </div>
           </div>

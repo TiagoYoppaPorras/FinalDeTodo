@@ -4,6 +4,7 @@ import api from "../../api/Client";
 import { CalendarDays, PlusCircle, Edit, Trash2 } from "lucide-react";
 import EditModal from "../../components/common/EditModal";
 import { FileText } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function Turnos() {
   const [turnos, setTurnos] = useState([]);
@@ -22,6 +23,7 @@ export default function Turnos() {
   const [servicios, setServicios] = useState([]);
   const [salas, setSalas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   // Estados para edición
   const [editando, setEditando] = useState(null);
@@ -546,12 +548,16 @@ export default function Turnos() {
                 }
               />
             </div>
-            <button
-  onClick={() => navigate(`/historias-clinicas?paciente_id=${turno.paciente_id}&kinesiologo_id=${turno.kinesiologo_id}`)}
-  className="bg-green-500 text-white px-2 py-1 rounded text-xs"
->
-  <FileText className="w-4 h-4 inline mr-1" /> Crear Historia
-</button>
+             <button
+      onClick={() =>
+        navigate(
+          `/historias-clinicas?paciente_id=${turnos.paciente_id}&kinesiologo_id=${turnos.kinesiologo_id}`
+        )
+      }
+      className="bg-green-500 text-white px-2 py-1 rounded text-xs"
+    >
+      <FileText className="w-4 h-4 inline mr-1" /> Crear Historia
+    </button>
           </div>
         </EditModal>
       </div>
