@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta, datetime, time
 from typing import Optional, List
 from app.database import get_db
 
@@ -8,10 +8,10 @@ from app.database import get_db
 from app.models.turno import Turno
 from app.models.paciente import Paciente
 from app.models.kinesiologo import Kinesiologo
+from app.models.servicio import Servicio
 
 # SCHEMAS
 from app.schemas.turno_schema import TurnoCreate, TurnoUpdate, TurnoOut
-
 
 router = APIRouter(
     prefix="/turnos",
@@ -27,6 +27,11 @@ def validar_superposicion(
     exclude_id: Optional[int] = None
 ) -> bool:
     """Valida si un turno se superpone con otros existentes"""
+    
+    # Si no hay kinesiólogo asignado (solicitud de paciente), no validamos superposición de profesional
+    if not turno_data.kinesiologo_id:
+        return False
+
     query = db.query(Turno).filter(
         Turno.kinesiologo_id == turno_data.kinesiologo_id,
         Turno.fecha == turno_data.fecha,
@@ -46,13 +51,29 @@ def validar_superposicion(
 @router.post("/", response_model=TurnoOut, status_code=201)
 def crear_turno(turno: TurnoCreate, db: Session = Depends(get_db)):
     """Crear un nuevo turno con validación de superposición"""
+
+    # 1. Calcular hora_fin si no viene o si es igual a inicio, basándonos en el servicio
+    if turno.servicio_id and (not turno.hora_fin or turno.hora_fin == turno.hora_inicio):
+        servicio = db.query(Servicio).filter(Servicio.id == turno.servicio_id).first()
+        if servicio:
+            # Convertir hora_inicio a datetime para sumar minutos
+            dummy_date = datetime.combine(date.today(), turno.hora_inicio)
+            fin_dt = dummy_date + timedelta(minutes=servicio.duracion_minutos)
+            turno.hora_fin = fin_dt.time()
+        else:
+             # Default fallback si no hay servicio (30 min)
+            dummy_date = datetime.combine(date.today(), turno.hora_inicio)
+            fin_dt = dummy_date + timedelta(minutes=30)
+            turno.hora_fin = fin_dt.time()
+
+    # 2. Validar superposición (solo si hay kine asignado)
     if validar_superposicion(turno, db):
         raise HTTPException(
             status_code=400,
-            detail="El turno se superpone con otro existente"
+            detail="El turno se superpone con otro existente para este kinesiólogo"
         )
 
-    nuevo_turno = Turno(**turno.dict())
+    nuevo_turno = Turno(**turno.model_dump()) # Usamos model_dump() para Pydantic v2
     db.add(nuevo_turno)
     db.commit()
     db.refresh(nuevo_turno)
@@ -152,11 +173,14 @@ def actualizar_turno(
         raise HTTPException(status_code=404, detail="Turno no encontrado")
 
     if turno.fecha and turno.hora_inicio and turno.hora_fin:
+        # Aseguramos un ID para validar, si no hay kine nuevo, usamos el existente
+        kine_check = turno.kinesiologo_id if turno.kinesiologo_id is not None else turno_existente.kinesiologo_id
+        
         temp_turno = TurnoCreate(
             fecha=turno.fecha,
             hora_inicio=turno.hora_inicio,
             hora_fin=turno.hora_fin,
-            kinesiologo_id=turno.kinesiologo_id or turno_existente.kinesiologo_id,
+            kinesiologo_id=kine_check,
             paciente_id=turno.paciente_id or turno_existente.paciente_id,
             estado=turno.estado or turno_existente.estado
         )
@@ -167,7 +191,7 @@ def actualizar_turno(
                 detail="El turno se superpone con otro existente"
             )
 
-    for field, value in turno.dict(exclude_unset=True).items():
+    for field, value in turno.model_dump(exclude_unset=True).items():
         setattr(turno_existente, field, value)
 
     db.commit()

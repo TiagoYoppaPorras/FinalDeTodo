@@ -17,15 +17,16 @@ class Turno(Base):
     id = Column(Integer, primary_key=True, index=True)
     fecha = Column(Date, nullable=False)
     hora_inicio = Column(Time, nullable=False)
-    hora_fin = Column(Time, nullable=False)
+    hora_fin = Column(Time, nullable=True) # Permitimos que sea null temporalmente si fuera necesario
     estado = Column(Enum(EstadoTurno), default=EstadoTurno.pendiente)
     motivo = Column(Text, nullable=True)
     observaciones = Column(Text, nullable=True)
 
     paciente_id = Column(Integer, ForeignKey("pacientes.id", ondelete="CASCADE"))
-    kinesiologo_id = Column(Integer, ForeignKey("kinesiologos.id", ondelete="CASCADE"))
+    # Permitimos null aquí para turnos solicitados por pacientes sin asignar
+    kinesiologo_id = Column(Integer, ForeignKey("kinesiologos.id", ondelete="CASCADE"), nullable=True)
     servicio_id = Column(Integer, ForeignKey("servicios.id", ondelete="CASCADE"))
-    sala_id = Column(Integer, ForeignKey("salas.id", ondelete="CASCADE"))
+    sala_id = Column(Integer, ForeignKey("salas.id", ondelete="CASCADE"), nullable=True)
 
     paciente = relationship("Paciente", back_populates="turnos")
     kinesiologo = relationship("Kinesiologo", back_populates="turnos")
