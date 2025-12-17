@@ -21,7 +21,6 @@ class TurnoBase(BaseModel):
 class TurnoCreate(TurnoBase):
     pass
 
-
 class TurnoUpdate(BaseModel):
     """Schema para actualizar turno (todos los campos opcionales)"""
     fecha: Optional[date] = None
@@ -36,8 +35,7 @@ class TurnoUpdate(BaseModel):
     sala_id: Optional[int] = None
 
     class Config:
-        orm_mode = True
-
+        from_attributes = True  # <--- Cambiado
 
 class TurnoOut(TurnoBase):
     id: int
@@ -47,4 +45,4 @@ class TurnoOut(TurnoBase):
     sala: Optional[SalaOut]
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # <--- Cambiado

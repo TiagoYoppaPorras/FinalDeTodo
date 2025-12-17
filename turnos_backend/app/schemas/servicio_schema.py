@@ -6,10 +6,8 @@ class ServicioBase(BaseModel):
     description: Optional[str] = None
     duracion_minutos: int
 
-
 class ServicioCreate(ServicioBase):
     pass
-
 
 class ServicioUpdate(BaseModel):
     """Schema para actualizar servicio (todos los campos opcionales)"""
@@ -18,11 +16,10 @@ class ServicioUpdate(BaseModel):
     duracion_minutos: Optional[int] = None
 
     class Config:
-        orm_mode = True
-
+        from_attributes = True  # <--- Cambiado
 
 class ServicioOut(ServicioBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # <--- Cambiado

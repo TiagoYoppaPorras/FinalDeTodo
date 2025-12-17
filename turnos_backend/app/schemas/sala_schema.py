@@ -16,11 +16,11 @@ class SalaUpdate(BaseModel):
     ubicacion: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class SalaOut(SalaBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True

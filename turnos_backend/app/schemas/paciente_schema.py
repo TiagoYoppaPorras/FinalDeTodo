@@ -24,7 +24,7 @@ class PacienteUpdate(BaseModel):
     direccion: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class PacienteOut(PacienteBase):
@@ -33,4 +33,4 @@ class PacienteOut(PacienteBase):
     user: Optional[UserOut] = None  # 👈 ahora incluye el usuario completo
 
     class Config:
-        orm_mode = True
+        from_attributes = True

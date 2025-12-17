@@ -19,7 +19,7 @@ class KinesiologoUpdate(BaseModel):
     matricula_profesional: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class KinesiologoOut(KinesiologoBase):
@@ -28,4 +28,4 @@ class KinesiologoOut(KinesiologoBase):
     user: Optional[UserOut] = None  # 👈 Incluir el usuario relacionado
 
     class Config:
-        orm_mode = True
+        from_attributes = True
