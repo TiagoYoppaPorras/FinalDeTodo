@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import MainLayout from "../components/layout/MainLayout";
 import api from "../api/Client";
+import DataTable from "../components/common/DataTable"; // 👈 Importamos el componente mágico
 import { CalendarDays, Users, Activity, Layers } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -23,7 +24,6 @@ export default function Dashboard() {
       try {
         let promises = [];
 
-        // --- Admin puede pedir todo ---
         if (isAdmin) {
           promises = [
             api.get("/usuarios/"),
@@ -34,14 +34,7 @@ export default function Dashboard() {
             api.get("/salas/"),
           ];
 
-          const [
-            resUsuarios,
-            resPac,
-            resKine,
-            resTurnos,
-            resServ,
-            resSalas,
-          ] = await Promise.all(promises);
+          const [resUsuarios, resPac, resKine, resTurnos, resServ, resSalas] = await Promise.all(promises);
 
           setUsuarios(resUsuarios.data);
           setPacientes(resPac.data);
@@ -49,37 +42,22 @@ export default function Dashboard() {
           setTurnos(resTurnos.data);
           setServicios(resServ.data);
           setSalas(resSalas.data);
-        }
-
-        // --- Kinesiologo: solo sus turnos y datos informativos ---
-        else if (isKine) {
+        } else if (isKine) {
           const [resTurnos, resServ, resSalas] = await Promise.all([
             api.get("/turnos/"),
             api.get("/servicios/"),
             api.get("/salas/"),
           ]);
-
-          // Filtramos solo los turnos asignados al kinesiólogo logueado
-          const propios = resTurnos.data.filter(
-            (t) => t.kinesiologo?.user_id === user.id
-          );
-
+          const propios = resTurnos.data.filter((t) => t.kinesiologo?.user_id === user.id);
           setTurnos(propios);
           setServicios(resServ.data);
           setSalas(resSalas.data);
-        }
-
-        // --- Paciente: solo sus turnos y servicios disponibles ---
-        else if (isPaciente) {
+        } else if (isPaciente) {
           const [resTurnos, resServ] = await Promise.all([
             api.get("/turnos/"),
             api.get("/servicios/"),
           ]);
-
-          const propios = resTurnos.data.filter(
-            (t) => t.paciente?.user_id === user.id
-          );
-
+          const propios = resTurnos.data.filter((t) => t.paciente?.user_id === user.id);
           setTurnos(propios);
           setServicios(resServ.data);
         }
@@ -100,94 +78,86 @@ export default function Dashboard() {
       </MainLayout>
     );
 
-  // 📊 Calcular métricas solo si es admin
   const pendientes = turnos.filter((t) => t.estado === "pendiente").length;
   const confirmados = turnos.filter((t) => t.estado === "confirmado").length;
   const cancelados = turnos.filter((t) => t.estado === "cancelado").length;
 
-  // 📅 Próximos turnos
   const proximos = [...turnos]
     .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
     .slice(0, 5);
 
+  // 🔹 DEFINICIÓN DE COLUMNAS PARA DATATABLE (Dashboard)
+  const columns = [
+    { key: "fecha", label: "Fecha" },
+    { 
+      key: "hora", 
+      label: "Hora", 
+      render: (t) => t.hora_inicio?.slice(0, 5) || "—" 
+    },
+    { 
+      key: "paciente", 
+      label: "Paciente", 
+      render: (t) => <span className="font-medium">{t.paciente?.user?.nombre || "—"}</span> 
+    },
+    { 
+      key: "kinesiologo", 
+      label: "Kinesiólogo", 
+      render: (t) => t.kinesiologo?.user?.nombre || "—" 
+    },
+    { 
+      key: "servicio", 
+      label: "Servicio", 
+      render: (t) => t.servicio?.nombre || "—" 
+    },
+    { 
+      key: "estado", 
+      label: "Estado", 
+      render: (t) => (
+        <span className={`px-2 py-1 rounded-full text-xs font-semibold
+          ${t.estado === 'confirmado' ? 'bg-green-100 text-green-700' : 
+            t.estado === 'cancelado' ? 'bg-red-100 text-red-700' : 
+            'bg-yellow-100 text-yellow-700'}`}>
+          {t.estado}
+        </span>
+      )
+    },
+  ];
+
   return (
     <MainLayout>
-      <div className="p-6 space-y-8">
+      <div className="p-4 md:p-6 space-y-8">
         <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
           <Activity className="text-blue-600 w-6 h-6" />
           Panel de Control
         </h1>
 
-        {/* === ADMIN CARDS === */}
         {isAdmin && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <DashboardCard
-              icon={<Users className="text-blue-600 w-6 h-6" />}
-              title="Usuarios"
-              value={usuarios.length}
-            />
-            <DashboardCard
-              icon={<Users className="text-green-600 w-6 h-6" />}
-              title="Pacientes"
-              value={pacientes.length}
-            />
-            <DashboardCard
-              icon={<Users className="text-purple-600 w-6 h-6" />}
-              title="Kinesiólogos"
-              value={kines.length}
-            />
-            <DashboardCard
-              icon={<CalendarDays className="text-orange-600 w-6 h-6" />}
-              title="Turnos Totales"
-              value={turnos.length}
-            />
+            <DashboardCard icon={<Users className="text-blue-600 w-6 h-6" />} title="Usuarios" value={usuarios.length} />
+            <DashboardCard icon={<Users className="text-green-600 w-6 h-6" />} title="Pacientes" value={pacientes.length} />
+            <DashboardCard icon={<Users className="text-purple-600 w-6 h-6" />} title="Kinesiólogos" value={kines.length} />
+            <DashboardCard icon={<CalendarDays className="text-orange-600 w-6 h-6" />} title="Turnos Totales" value={turnos.length} />
           </div>
         )}
 
-        {/* === ESTADO DE TURNOS (visible para todos) === */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <DashboardCard title="Pendientes" value={pendientes} color="text-yellow-600" />
           <DashboardCard title="Confirmados" value={confirmados} color="text-green-600" />
           <DashboardCard title="Cancelados" value={cancelados} color="text-red-600" />
         </div>
 
-        {/* === TABLA DE PRÓXIMOS TURNOS === */}
-        <div className="bg-white border rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+        {/* === TABLA RESPONSIVE === */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
             <CalendarDays className="w-5 h-5 text-blue-600" /> Próximos Turnos
           </h2>
-
-          {proximos.length === 0 ? (
-            <p className="text-gray-500">No hay turnos próximos.</p>
-          ) : (
-            <table className="w-full text-sm border">
-              <thead className="bg-gray-100 text-gray-700">
-                <tr>
-                  <th className="p-2 border">Fecha</th>
-                  <th className="p-2 border">Hora</th>
-                  <th className="p-2 border">Paciente</th>
-                  <th className="p-2 border">Kinesiólogo</th>
-                  <th className="p-2 border">Servicio</th>
-                  <th className="p-2 border">Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {proximos.map((t) => (
-                  <tr key={t.id} className="border-t hover:bg-gray-50">
-                    <td className="p-2 border">{t.fecha}</td>
-                    <td className="p-2 border">{t.hora_inicio?.slice(0, 5) || "—"}</td>
-                    <td className="p-2 border">{t.paciente?.user?.nombre || "—"}</td>
-                    <td className="p-2 border">{t.kinesiologo?.user?.nombre || "—"}</td>
-                    <td className="p-2 border">{t.servicio?.nombre || "—"}</td>
-                    <td className="p-2 border capitalize">{t.estado}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          <DataTable 
+            data={proximos} 
+            columns={columns} 
+            emptyMessage="No hay turnos próximos." 
+          />
         </div>
 
-        {/* === SERVICIOS Y SALAS === */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white border rounded-lg shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
@@ -199,15 +169,13 @@ export default function Dashboard() {
               <ul className="text-gray-700 list-disc pl-5">
                 {servicios.map((s) => (
                   <li key={s.id}>
-                    {s.nombre} —{" "}
-                    <span className="text-gray-500 text-sm">{s.description}</span>
+                    {s.nombre} — <span className="text-gray-500 text-sm">{s.description}</span>
                   </li>
                 ))}
               </ul>
             )}
           </div>
 
-          {/* Salas solo para admin y kine */}
           {(isAdmin || isKine) && (
             <div className="bg-white border rounded-lg shadow-sm p-6">
               <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
@@ -219,10 +187,7 @@ export default function Dashboard() {
                 <ul className="text-gray-700 list-disc pl-5">
                   {salas.map((s) => (
                     <li key={s.id}>
-                      {s.nombre} —{" "}
-                      <span className="text-gray-500 text-sm">
-                        {s.ubicacion || "Sin ubicación"}
-                      </span>
+                      {s.nombre} — <span className="text-gray-500 text-sm">{s.ubicacion || "Sin ubicación"}</span>
                     </li>
                   ))}
                 </ul>
@@ -235,7 +200,6 @@ export default function Dashboard() {
   );
 }
 
-// --- CARD COMPONENT ---
 function DashboardCard({ icon, title, value, color = "text-gray-800" }) {
   return (
     <div className="bg-white p-4 rounded-lg shadow-sm border flex items-center gap-3">

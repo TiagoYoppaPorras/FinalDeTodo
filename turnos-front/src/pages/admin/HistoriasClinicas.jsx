@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom"; // 👈 Agregado useNavigate
 import MainLayout from "../../components/layout/MainLayout";
 import api from "../../api/Client";
 import { 
@@ -16,30 +16,29 @@ import {
   Ruler
 } from "lucide-react";
 import EditModal from "../../components/common/EditModal";
-
 import { useAuth } from "../../context/AuthContext";
-
-
 
 export default function HistoriasClinicas() {
   const [searchParams] = useSearchParams();
   const pacienteIdParam = searchParams.get("paciente_id");
   const { roles } = useAuth();
+  const navigate = useNavigate(); // 👈 Hook necesario para la redirección
 
   const [historias, setHistorias] = useState([]);
   const [pacientes, setPacientes] = useState([]);
   const [kinesiologos, setKinesiologos] = useState([]);
   const [loading, setLoading] = useState(true);
 
-const getNombrePaciente = (id) => {
-  const p = pacientes.find(p => p.id === id);
-  return p?.user?.nombre || "N/A";
-};
+  const getNombrePaciente = (id) => {
+    const p = pacientes.find(p => p.id === id);
+    return p?.user?.nombre || "N/A";
+  };
 
-const getNombreKinesiologo = (id) => {
-  const k = kinesiologos.find(k => k.id === id);
-  return k?.user?.nombre || "N/A";
-};
+  const getNombreKinesiologo = (id) => {
+    const k = kinesiologos.find(k => k.id === id);
+    return k?.user?.nombre || "N/A";
+  };
+
   // Estados para creación/edición
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editando, setEditando] = useState(null);
@@ -70,11 +69,14 @@ const getNombreKinesiologo = (id) => {
   useEffect(() => {
     fetchDatos();
   }, []);
-useEffect(() => {
-  if (!roles.includes("admin") && !roles.includes("kinesiologo")) {
-    navigate("/dashboard");
-  }
-}, [roles]);
+
+  useEffect(() => {
+    // Validación de seguridad
+    if (roles.length > 0 && !roles.includes("admin") && !roles.includes("kinesiologo")) {
+      navigate("/dashboard");
+    }
+  }, [roles, navigate]);
+
   const fetchDatos = async () => {
     setLoading(true);
     try {
@@ -237,9 +239,9 @@ useEffect(() => {
 
   return (
     <MainLayout>
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+      <div className="p-4 md:p-6 space-y-6">
+        {/* Header Responsive */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-3">
             <FileText className="text-blue-600 w-8 h-8" />
             <h1 className="text-2xl font-semibold text-gray-800">
@@ -248,19 +250,19 @@ useEffect(() => {
           </div>
           <button
             onClick={abrirModalCrear}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
           >
             <PlusCircle className="w-5 h-5" /> Nueva Historia
           </button>
         </div>
 
         {/* Filtros */}
-        <div className="bg-white border rounded-lg p-4">
+        <div className="bg-white border rounded-lg p-4 shadow-sm">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Filtrar por Paciente
           </label>
           <select
-            className="w-full md:w-96 border border-gray-300 rounded-lg p-2"
+            className="w-full md:w-96 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none"
             value={pacienteSeleccionado}
             onChange={(e) => handleCambiarPaciente(e.target.value)}
           >
@@ -273,146 +275,115 @@ useEffect(() => {
           </select>
         </div>
 
-        {/* Lista de Historias */}
-        <div className="bg-white border rounded-lg shadow-sm p-6">
-          {historias.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">
+        {/* Lista de Historias (Grid Responsive) */}
+        {historias.length === 0 ? (
+          <div className="bg-white border rounded-lg shadow-sm p-8 text-center">
+            <p className="text-gray-500">
               No hay historias clínicas registradas
               {pacienteSeleccionado && " para este paciente"}.
             </p>
-          ) : (
-            <div className="space-y-4">
-              {historias.map((historia) => (
-                <div
-                  key={historia.id}
-                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                >
-                  {/* Header de la historia */}
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex items-center gap-3">
-                      <Calendar className="w-5 h-5 text-gray-500" />
-                      <div>
-                        <p className="font-semibold text-gray-800">
-                          {new Date(historia.fecha_consulta).toLocaleDateString("es-AR", {
-                            day: "2-digit",
-                            month: "long",
-                            year: "numeric",
-                          })}
+          </div>
+        ) : (
+          /* 🔹 GRID: 1 col móvil, 2 col tablet, 3 col desktop */
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {historias.map((historia) => (
+              <div
+                key={historia.id}
+                className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full"
+              >
+                {/* Header de la Card */}
+                <div className="flex justify-between items-start mb-4 pb-3 border-b border-gray-100">
+                  <div>
+                    <p className="font-bold text-lg text-blue-900 flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        {new Date(historia.fecha_consulta).toLocaleDateString("es-AR", {
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric",
+                        })}
+                    </p>
+                    <div className="text-sm text-gray-600 mt-1 space-y-1">
+                        <p className="flex items-center gap-1">
+                            <User className="w-3 h-3" /> Paciente: <span className="font-medium">{getNombrePaciente(historia.paciente_id)}</span>
                         </p>
-                        <p className="text-sm text-gray-500">
-  <User className="w-4 h-4 inline mr-1" />
-  Paciente: {getNombrePaciente(historia.paciente_id)}
-</p>
-
-<p className="text-sm text-gray-500">
-  Kinesiólogo: {getNombreKinesiologo(historia.kinesiologo_id)}
-</p>
-                      </div>
-                    </div>
-
-                    {/* Acciones */}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => abrirModalEditar(historia)}
-                        className="bg-yellow-500 text-white px-3 py-1 rounded text-sm flex items-center gap-1 hover:bg-yellow-600"
-                      >
-                        <Edit className="w-4 h-4" /> Editar
-                      </button>
-                      <button
-                        onClick={() => handleEliminar(historia.id)}
-                        className="bg-red-500 text-white px-3 py-1 rounded text-sm flex items-center gap-1 hover:bg-red-600"
-                      >
-                        <Trash2 className="w-4 h-4" /> Eliminar
-                      </button>
+                        <p className="flex items-center gap-1">
+                            <Activity className="w-3 h-3" /> Kinesiólogo: <span className="font-medium">{getNombreKinesiologo(historia.kinesiologo_id)}</span>
+                        </p>
                     </div>
                   </div>
+                  
+                  {/* Botones de acción compactos */}
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => abrirModalEditar(historia)}
+                      className="bg-yellow-100 text-yellow-700 p-2 rounded hover:bg-yellow-200 transition"
+                      title="Editar"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleEliminar(historia.id)}
+                      className="bg-red-100 text-red-700 p-2 rounded hover:bg-red-200 transition"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
 
-                  {/* Datos Vitales (si existen) */}
-                  {(historia.peso || historia.presion_arterial || historia.temperatura) && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 bg-blue-50 p-3 rounded">
-                      {historia.peso && (
-                        <div className="flex items-center gap-2">
-                          <Weight className="w-4 h-4 text-blue-600" />
-                          <span className="text-sm">
-                            <strong>Peso:</strong> {historia.peso} kg
-                          </span>
-                        </div>
-                      )}
-                      {historia.altura && (
-                        <div className="flex items-center gap-2">
-                          <Ruler className="w-4 h-4 text-blue-600" />
-                          <span className="text-sm">
-                            <strong>Altura:</strong> {historia.altura} cm
-                          </span>
-                        </div>
-                      )}
-                      {historia.presion_arterial && (
-                        <div className="flex items-center gap-2">
-                          <Heart className="w-4 h-4 text-red-600" />
-                          <span className="text-sm">
-                            <strong>Presión:</strong> {historia.presion_arterial}
-                          </span>
-                        </div>
-                      )}
-                      {historia.temperatura && (
-                        <div className="flex items-center gap-2">
-                          <Thermometer className="w-4 h-4 text-orange-600" />
-                          <span className="text-sm">
-                            <strong>Temp:</strong> {historia.temperatura}°C
-                          </span>
-                        </div>
-                      )}
-                      {historia.frecuencia_cardiaca && (
-                        <div className="flex items-center gap-2">
-                          <Activity className="w-4 h-4 text-green-600" />
-                          <span className="text-sm">
-                            <strong>FC:</strong> {historia.frecuencia_cardiaca} lpm
-                          </span>
-                        </div>
-                      )}
+                {/* Datos Vitales (Tags) */}
+                {(historia.peso || historia.presion_arterial || historia.temperatura) && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {historia.peso && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full font-medium border border-blue-100">
+                        <Weight className="w-3 h-3" /> {historia.peso} kg
+                      </span>
+                    )}
+                    {historia.presion_arterial && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-50 text-red-700 text-xs rounded-full font-medium border border-red-100">
+                        <Heart className="w-3 h-3" /> {historia.presion_arterial}
+                      </span>
+                    )}
+                    {historia.temperatura && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-50 text-orange-700 text-xs rounded-full font-medium border border-orange-100">
+                        <Thermometer className="w-3 h-3" /> {historia.temperatura}°C
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Contenido Clínico */}
+                <div className="space-y-3 text-sm flex-1">
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Motivo</p>
+                    <p className="text-gray-800 break-words">{historia.motivo_consulta}</p>
+                  </div>
+
+                  {historia.diagnostico && (
+                    <div>
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Diagnóstico</p>
+                      <p className="text-gray-800 break-words">{historia.diagnostico}</p>
                     </div>
                   )}
 
-                  {/* Contenido Clínico */}
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-xs font-semibold text-gray-600 uppercase">Motivo de Consulta</p>
-                      <p className="text-sm text-gray-800">{historia.motivo_consulta}</p>
+                  {historia.tratamiento && (
+                    <div className="bg-green-50 p-2 rounded border border-green-100">
+                      <p className="text-xs font-bold text-green-800 uppercase tracking-wider">Tratamiento</p>
+                      <p className="text-green-900 break-words">{historia.tratamiento}</p>
                     </div>
-
-                    {historia.diagnostico && (
-                      <div>
-                        <p className="text-xs font-semibold text-gray-600 uppercase">Diagnóstico</p>
-                        <p className="text-sm text-gray-800">{historia.diagnostico}</p>
-                      </div>
-                    )}
-
-                    {historia.tratamiento && (
-                      <div>
-                        <p className="text-xs font-semibold text-gray-600 uppercase">Tratamiento</p>
-                        <p className="text-sm text-gray-800">{historia.tratamiento}</p>
-                      </div>
-                    )}
-
-                    {historia.evolucion && (
-                      <div>
-                        <p className="text-xs font-semibold text-gray-600 uppercase">Evolución</p>
-                        <p className="text-sm text-gray-800">{historia.evolucion}</p>
-                      </div>
-                    )}
-
-                    {historia.observaciones && (
-                      <div>
-                        <p className="text-xs font-semibold text-gray-600 uppercase">Observaciones</p>
-                        <p className="text-sm text-gray-500 italic">{historia.observaciones}</p>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+                
+                {/* Footer Tarjeta (Observaciones) */}
+                {historia.observaciones && (
+                    <div className="mt-4 pt-3 border-t border-gray-100">
+                        <p className="text-xs text-gray-400 italic break-words">"{historia.observaciones}"</p>
+                    </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Modal de Creación/Edición */}
         <EditModal
@@ -422,7 +393,7 @@ useEffect(() => {
           onSave={handleGuardar}
           isLoading={isLoadingSave}
         >
-          <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto p-1">
             {/* Paciente y Kinesiólogo */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -465,8 +436,10 @@ useEffect(() => {
             </div>
 
             {/* Datos Vitales */}
-            <div className="bg-gray-50 rounded-lg p-3">
-              <h4 className="font-semibold text-gray-700 mb-2">Datos Vitales</h4>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <Activity className="w-4 h-4" /> Datos Vitales
+              </h4>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Peso (kg)</label>
@@ -489,9 +462,10 @@ useEffect(() => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Presión (ej: 120/80)</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Presión</label>
                   <input
                     type="text"
+                    placeholder="120/80"
                     className="w-full border border-gray-300 rounded p-2"
                     value={formData.presion_arterial}
                     onChange={(e) => setFormData({ ...formData, presion_arterial: e.target.value })}
@@ -507,7 +481,7 @@ useEffect(() => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Temperatura (°C)</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Temp (°C)</label>
                   <input
                     type="number"
                     step="0.1"

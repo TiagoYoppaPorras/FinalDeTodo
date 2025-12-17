@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import MainLayout from "../../components/layout/MainLayout";
 import api from "../../api/Client";
 import { Shield, PlusCircle, Trash2 } from "lucide-react";
+import DataTable from "../../components/common/DataTable"; // 👈 Importamos el componente responsive
 
 export default function Roles() {
   const [roles, setRoles] = useState([]);
@@ -53,9 +54,39 @@ export default function Roles() {
     }
   };
 
+  // 🔹 DEFINICIÓN DE COLUMNAS PARA DATATABLE
+  const columns = [
+    { key: "id", label: "ID", render: (r) => <span className="text-gray-500">#{r.id}</span> },
+    { key: "name", label: "Nombre", render: (r) => <span className="font-medium text-gray-800">{r.name}</span> },
+    { key: "description", label: "Descripción", render: (r) => r.description || "—" },
+    {
+      key: "acciones",
+      label: "Acciones",
+      render: (r) => (
+        <div className="flex gap-2 justify-end md:justify-start">
+          <button
+            onClick={() => handleDelete(r.id)}
+            className="bg-red-500 text-white p-1.5 rounded hover:bg-red-600 flex items-center gap-1 text-xs"
+            title="Eliminar"
+          >
+            <Trash2 className="w-4 h-4" /> Eliminar
+          </button>
+        </div>
+      )
+    }
+  ];
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="p-6 text-gray-600">Cargando roles...</div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-6">
         <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
           <Shield className="text-blue-600 w-6 h-6" /> Gestión de Roles
         </h1>
@@ -63,13 +94,13 @@ export default function Roles() {
         {/* 🔹 Formulario de creación */}
         <form
           onSubmit={handleCreate}
-          className="bg-white p-6 rounded-lg shadow-sm border space-y-4"
+          className="bg-white p-4 md:p-6 rounded-lg shadow-sm border space-y-4"
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
               type="text"
               placeholder="Nombre del rol (ej: admin)"
-              className="border p-2 rounded"
+              className="border p-2 rounded w-full"
               value={nuevoRol.name}
               onChange={(e) =>
                 setNuevoRol({ ...nuevoRol, name: e.target.value })
@@ -79,7 +110,7 @@ export default function Roles() {
             <input
               type="text"
               placeholder="Descripción"
-              className="border p-2 rounded"
+              className="border p-2 rounded w-full"
               value={nuevoRol.description}
               onChange={(e) =>
                 setNuevoRol({ ...nuevoRol, description: e.target.value })
@@ -90,48 +121,18 @@ export default function Roles() {
 
           <button
             type="submit"
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
           >
             <PlusCircle className="w-5 h-5" /> Crear Rol
           </button>
         </form>
 
-        {/* 🔹 Tabla de roles */}
-        <div className="bg-white border rounded-lg shadow-sm p-6">
-          {loading ? (
-            <p className="text-gray-500">Cargando roles...</p>
-          ) : roles.length === 0 ? (
-            <p className="text-gray-500">No hay roles registrados.</p>
-          ) : (
-            <table className="w-full text-sm border">
-              <thead className="bg-gray-100 text-gray-700">
-                <tr>
-                  <th className="p-2 border">ID</th>
-                  <th className="p-2 border">Nombre</th>
-                  <th className="p-2 border">Descripción</th>
-                  <th className="p-2 border text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {roles.map((r) => (
-                  <tr key={r.id} className="border-t hover:bg-gray-50">
-                    <td className="p-2 border text-center">{r.id}</td>
-                    <td className="p-2 border font-medium">{r.name}</td>
-                    <td className="p-2 border">{r.description}</td>
-                    <td className="p-2 border text-center">
-                      <button
-                        onClick={() => handleDelete(r.id)}
-                        className="bg-red-500 text-white px-3 py-1 rounded text-xs flex items-center gap-1 justify-center hover:bg-red-600"
-                      >
-                        <Trash2 className="w-4 h-4" /> Eliminar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        {/* 🔹 TABLA RESPONSIVE */}
+        <DataTable 
+          data={roles} 
+          columns={columns} 
+          emptyMessage="No hay roles registrados." 
+        />
       </div>
     </MainLayout>
   );

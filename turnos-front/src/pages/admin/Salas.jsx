@@ -4,10 +4,12 @@ import api from "../../api/Client";
 import { Layers, PlusCircle, Trash2, Edit } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import EditModal from "../../components/common/EditModal";
+import DataTable from "../../components/common/DataTable"; // 👈 Importamos el componente responsive
 
 export default function Salas() {
   const [salas, setSalas] = useState([]);
   const [nuevaSala, setNuevaSala] = useState({ nombre: "", ubicacion: "" });
+  const [loading, setLoading] = useState(true); // Agregamos estado de carga
 
   // Estados para edición
   const [editando, setEditando] = useState(null);
@@ -23,6 +25,8 @@ export default function Salas() {
       setSalas(res.data);
     } catch (err) {
       console.error("❌ Error al cargar salas:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -79,9 +83,45 @@ export default function Salas() {
     }
   };
 
+  // 🔹 DEFINICIÓN DE COLUMNAS PARA DATATABLE
+  const columns = [
+    { key: "nombre", label: "Nombre" },
+    { key: "ubicacion", label: "Ubicación", render: (s) => s.ubicacion || "—" },
+    ...(isAdmin ? [{
+      key: "acciones",
+      label: "Acciones",
+      render: (s) => (
+        <div className="flex gap-2 justify-end md:justify-start">
+          <button
+            onClick={() => handleEdit(s)}
+            className="bg-yellow-500 text-white p-1.5 rounded hover:bg-yellow-600"
+            title="Editar"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleDelete(s.id)}
+            className="bg-red-500 text-white p-1.5 rounded hover:bg-red-600"
+            title="Eliminar"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      )
+    }] : [])
+  ];
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="p-6 text-gray-600">Cargando salas...</div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-6">
         <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
           <Layers className="text-green-600 w-6 h-6" /> Salas
         </h1>
@@ -90,13 +130,13 @@ export default function Salas() {
         {isAdmin && (
           <form
             onSubmit={handleCreate}
-            className="bg-white p-6 rounded-lg shadow-sm border space-y-4"
+            className="bg-white p-4 md:p-6 rounded-lg shadow-sm border space-y-4"
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <input
                 type="text"
                 placeholder="Nombre de la sala"
-                className="border p-2 rounded"
+                className="border p-2 rounded w-full"
                 value={nuevaSala.nombre}
                 onChange={(e) =>
                   setNuevaSala({ ...nuevaSala, nombre: e.target.value })
@@ -106,7 +146,7 @@ export default function Salas() {
               <input
                 type="text"
                 placeholder="Ubicación"
-                className="border p-2 rounded"
+                className="border p-2 rounded w-full"
                 value={nuevaSala.ubicacion}
                 onChange={(e) =>
                   setNuevaSala({ ...nuevaSala, ubicacion: e.target.value })
@@ -116,55 +156,19 @@ export default function Salas() {
 
             <button
               type="submit"
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+              className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
             >
               <PlusCircle className="w-5 h-5" /> Crear Sala
             </button>
           </form>
         )}
 
-        {/* Lista de salas */}
-        <div className="bg-white border rounded-lg shadow-sm p-6">
-          {salas.length === 0 ? (
-            <p className="text-gray-500">No hay salas registradas.</p>
-          ) : (
-            <table className="w-full border text-sm">
-              <thead className="bg-gray-100 text-gray-700">
-                <tr>
-                  <th className="p-2 border">Nombre</th>
-                  <th className="p-2 border">Ubicación</th>
-                  {isAdmin && <th className="p-2 border">Acciones</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {salas.map((s) => (
-                  <tr key={s.id} className="border-t hover:bg-gray-50">
-                    <td className="p-2 border">{s.nombre}</td>
-                    <td className="p-2 border">{s.ubicacion || "—"}</td>
-                    {isAdmin && (
-                      <td className="p-2 border">
-                        <div className="flex gap-2 justify-center">
-                          <button
-                            onClick={() => handleEdit(s)}
-                            className="bg-yellow-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-yellow-600"
-                          >
-                            <Edit className="w-4 h-4" /> Editar
-                          </button>
-                          <button
-                            onClick={() => handleDelete(s.id)}
-                            className="bg-red-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" /> Eliminar
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        {/* 🔹 TABLA RESPONSIVE */}
+        <DataTable 
+          data={salas} 
+          columns={columns} 
+          emptyMessage="No hay salas registradas." 
+        />
 
         {/* 🔹 Modal de edición */}
         <EditModal

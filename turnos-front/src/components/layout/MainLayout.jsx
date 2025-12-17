@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 import { useAuth } from "../../context/AuthContext";
 
 export default function MainLayout({ children }) {
   const { user, logout, loading } = useAuth();
+  // Estado para controlar si el sidebar está visible en móvil
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // 🔹 Espera a que se cargue el contexto antes de mostrar contenido
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center text-gray-500">
@@ -15,7 +16,6 @@ export default function MainLayout({ children }) {
     );
   }
 
-  // 🔹 Si no hay usuario (no logueado o token inválido)
   if (!user) {
     return (
       <div className="flex h-screen items-center justify-center text-gray-500">
@@ -26,10 +26,26 @@ export default function MainLayout({ children }) {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar user={user} />
-      <div className="flex flex-col flex-1">
-        <Navbar user={user} onLogout={logout} />
-        <main className="flex-1 overflow-auto p-6">{children}</main>
+      {/* Pasamos el estado y la función para cerrar 
+        al Sidebar para que se comporte como un "Drawer" en móvil 
+      */}
+      <Sidebar 
+        user={user} 
+        isOpen={sidebarOpen} 
+        onClose={() => setSidebarOpen(false)} 
+      />
+
+      <div className="flex flex-col flex-1 min-w-0 transition-all duration-300">
+        {/* Pasamos la función para ABRIR el menú al Navbar */}
+        <Navbar 
+          user={user} 
+          onLogout={logout} 
+          onMenuClick={() => setSidebarOpen(true)}
+        />
+        
+        <main className="flex-1 overflow-auto p-4 md:p-6">
+          {children}
+        </main>
       </div>
     </div>
   );

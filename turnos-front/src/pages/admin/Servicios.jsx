@@ -4,6 +4,7 @@ import api from "../../api/Client";
 import { Layers, PlusCircle, Trash2, Edit } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import EditModal from "../../components/common/EditModal";
+import DataTable from "../../components/common/DataTable"; // 👈 Importamos el componente responsive
 
 export default function Servicios() {
   const [servicios, setServicios] = useState([]);
@@ -12,6 +13,7 @@ export default function Servicios() {
     description: "", 
     duracion_minutos: "" 
   });
+  const [loading, setLoading] = useState(true); // Agregamos estado de carga
 
   // Estados para edición
   const [editando, setEditando] = useState(null);
@@ -27,6 +29,8 @@ export default function Servicios() {
       setServicios(res.data);
     } catch (err) {
       console.error("❌ Error al cargar servicios:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -84,9 +88,46 @@ export default function Servicios() {
     }
   };
 
+  // 🔹 DEFINICIÓN DE COLUMNAS PARA DATATABLE
+  const columns = [
+    { key: "nombre", label: "Nombre" },
+    { key: "description", label: "Descripción", render: (s) => s.description || "—" },
+    { key: "duracion_minutos", label: "Duración (min)", render: (s) => s.duracion_minutos || "—" },
+    ...(isAdmin ? [{
+      key: "acciones",
+      label: "Acciones",
+      render: (s) => (
+        <div className="flex gap-2 justify-end md:justify-start">
+          <button
+            onClick={() => handleEdit(s)}
+            className="bg-yellow-500 text-white p-1.5 rounded hover:bg-yellow-600"
+            title="Editar"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleDelete(s.id)}
+            className="bg-red-500 text-white p-1.5 rounded hover:bg-red-600"
+            title="Eliminar"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      )
+    }] : [])
+  ];
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="p-6 text-gray-600">Cargando servicios...</div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-6">
         <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
           <Layers className="text-blue-600 w-6 h-6" /> Servicios
         </h1>
@@ -95,13 +136,13 @@ export default function Servicios() {
         {isAdmin && (
           <form
             onSubmit={handleCreate}
-            className="bg-white p-6 rounded-lg shadow-sm border space-y-4"
+            className="bg-white p-4 md:p-6 rounded-lg shadow-sm border space-y-4"
           >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <input
                 type="text"
                 placeholder="Nombre del servicio"
-                className="border p-2 rounded"
+                className="border p-2 rounded w-full"
                 value={nuevoServicio.nombre}
                 onChange={(e) =>
                   setNuevoServicio({ ...nuevoServicio, nombre: e.target.value })
@@ -111,7 +152,7 @@ export default function Servicios() {
               <input
                 type="text"
                 placeholder="Descripción"
-                className="border p-2 rounded"
+                className="border p-2 rounded w-full"
                 value={nuevoServicio.description}
                 onChange={(e) =>
                   setNuevoServicio({
@@ -123,7 +164,7 @@ export default function Servicios() {
               <input
                 type="number"
                 placeholder="Duración (min)"
-                className="border p-2 rounded"
+                className="border p-2 rounded w-full"
                 value={nuevoServicio.duracion_minutos}
                 onChange={(e) =>
                   setNuevoServicio({
@@ -136,59 +177,19 @@ export default function Servicios() {
 
             <button
               type="submit"
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+              className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
             >
               <PlusCircle className="w-5 h-5" /> Crear Servicio
             </button>
           </form>
         )}
 
-        {/* Lista de servicios */}
-        <div className="bg-white border rounded-lg shadow-sm p-6">
-          {servicios.length === 0 ? (
-            <p className="text-gray-500">No hay servicios registrados.</p>
-          ) : (
-            <table className="w-full border text-sm">
-              <thead className="bg-gray-100 text-gray-700">
-                <tr>
-                  <th className="p-2 border">Nombre</th>
-                  <th className="p-2 border">Descripción</th>
-                  <th className="p-2 border">Duración (min)</th>
-                  {isAdmin && <th className="p-2 border">Acciones</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {servicios.map((s) => (
-                  <tr key={s.id} className="border-t hover:bg-gray-50">
-                    <td className="p-2 border">{s.nombre}</td>
-                    <td className="p-2 border">{s.description || "—"}</td>
-                    <td className="p-2 border text-center">
-                      {s.duracion_minutos || "—"}
-                    </td>
-                    {isAdmin && (
-                      <td className="p-2 border">
-                        <div className="flex gap-2 justify-center">
-                          <button
-                            onClick={() => handleEdit(s)}
-                            className="bg-yellow-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-yellow-600"
-                          >
-                            <Edit className="w-4 h-4" /> Editar
-                          </button>
-                          <button
-                            onClick={() => handleDelete(s.id)}
-                            className="bg-red-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" /> Eliminar
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        {/* 🔹 TABLA RESPONSIVE */}
+        <DataTable 
+          data={servicios} 
+          columns={columns} 
+          emptyMessage="No hay servicios registrados." 
+        />
 
         {/* 🔹 Modal de edición */}
         <EditModal

@@ -4,6 +4,7 @@ import api from "../../api/Client";
 import { Users, PlusCircle, Trash2, Edit, Shield } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import EditModal from "../../components/common/EditModal";
+import DataTable from "../../components/common/DataTable"; // 👈 Importamos el componente responsive
 
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
@@ -125,7 +126,6 @@ export default function Usuarios() {
       await api.post(`/roles/${gestionandoRoles}/roles/${roleId}`);
       alert("✅ Rol asignado correctamente");
       
-      // Actualizar roles del usuario en el modal
       const rol = roles.find(r => r.id === roleId);
       setRolesUsuario([...rolesUsuario, rol]);
       
@@ -146,7 +146,6 @@ export default function Usuarios() {
       await api.delete(`/roles/${gestionandoRoles}/roles/${roleId}`);
       alert("✅ Rol removido correctamente");
       
-      // Actualizar roles del usuario en el modal
       setRolesUsuario(rolesUsuario.filter(r => r.id !== roleId));
       
       fetchUsuarios();
@@ -158,7 +157,63 @@ export default function Usuarios() {
     }
   };
 
-  // --- 🔹 Estado de carga inicial ---
+  // 🔹 DEFINICIÓN DE COLUMNAS PARA LA TABLA RESPONSIVE
+  const columns = [
+    { key: "nombre", label: "Nombre" },
+    { key: "email", label: "Email" },
+    { 
+      key: "roles", 
+      label: "Roles",
+      render: (u) => (
+        <div className="flex flex-wrap gap-1">
+          {u.roles && u.roles.length > 0 ? (
+            u.roles.map((rol) => (
+              <span key={rol.id} className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                {rol.name}
+              </span>
+            ))
+          ) : (
+            <span className="text-gray-400 text-xs">Sin roles</span>
+          )}
+        </div>
+      )
+    },
+    { 
+      key: "activo", 
+      label: "Activo",
+      render: (u) => (u.activo ? "✅" : "❌")
+    },
+    {
+      key: "acciones",
+      label: "Acciones",
+      render: (u) => (
+        <div className="flex gap-2 justify-end md:justify-start">
+          <button
+            onClick={() => handleEdit(u)}
+            className="bg-yellow-500 text-white p-1.5 rounded hover:bg-yellow-600"
+            title="Editar"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleGestionarRoles(u)}
+            className="bg-purple-500 text-white p-1.5 rounded hover:bg-purple-600"
+            title="Gestionar Roles"
+          >
+            <Shield className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleDelete(u.id)}
+            className="bg-red-500 text-white p-1.5 rounded hover:bg-red-600"
+            title="Eliminar"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      )
+    }
+  ];
+
   if (loading) {
     return (
       <MainLayout>
@@ -169,7 +224,7 @@ export default function Usuarios() {
 
   return (
     <MainLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-6">
         <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
           <Users className="text-blue-600 w-6 h-6" /> Gestión de Usuarios
         </h1>
@@ -177,13 +232,13 @@ export default function Usuarios() {
         {/* 🔹 Formulario de creación */}
         <form
           onSubmit={handleCreate}
-          className="bg-white p-6 rounded-lg shadow-sm border space-y-4"
+          className="bg-white p-4 md:p-6 rounded-lg shadow-sm border space-y-4"
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
               type="text"
               placeholder="Nombre completo"
-              className="border p-2 rounded"
+              className="border p-2 rounded w-full"
               value={nuevoUsuario.nombre}
               onChange={(e) =>
                 setNuevoUsuario({ ...nuevoUsuario, nombre: e.target.value })
@@ -193,7 +248,7 @@ export default function Usuarios() {
             <input
               type="email"
               placeholder="Correo electrónico"
-              className="border p-2 rounded"
+              className="border p-2 rounded w-full"
               value={nuevoUsuario.email}
               onChange={(e) =>
                 setNuevoUsuario({ ...nuevoUsuario, email: e.target.value })
@@ -203,7 +258,7 @@ export default function Usuarios() {
             <input
               type="password"
               placeholder="Contraseña"
-              className="border p-2 rounded"
+              className="border p-2 rounded w-full"
               value={nuevoUsuario.password}
               onChange={(e) =>
                 setNuevoUsuario({ ...nuevoUsuario, password: e.target.value })
@@ -214,81 +269,18 @@ export default function Usuarios() {
 
           <button
             type="submit"
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            className="flex items-center justify-center md:justify-start gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full md:w-auto"
           >
             <PlusCircle className="w-5 h-5" /> Crear Usuario
           </button>
         </form>
 
-        {/* 🔹 Tabla de usuarios */}
-        <div className="bg-white border rounded-lg shadow-sm p-6">
-          {usuarios.length === 0 ? (
-            <p className="text-gray-500">No hay usuarios registrados.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border text-sm">
-                <thead className="bg-gray-100 text-gray-700">
-                  <tr>
-                    <th className="p-2 border">Nombre</th>
-                    <th className="p-2 border">Email</th>
-                    <th className="p-2 border">Roles</th>
-                    <th className="p-2 border">Activo</th>
-                    <th className="p-2 border">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {usuarios.map((u) => (
-                    <tr key={u.id} className="border-t hover:bg-gray-50">
-                      <td className="p-2 border">{u.nombre}</td>
-                      <td className="p-2 border">{u.email}</td>
-                      <td className="p-2 border">
-                        <div className="flex flex-wrap gap-1">
-                          {u.roles && u.roles.length > 0 ? (
-                            u.roles.map((rol) => (
-                              <span
-                                key={rol.id}
-                                className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium"
-                              >
-                                {rol.name}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-gray-400 text-xs">Sin roles</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-2 border text-center">
-                        {u.activo ? "✅" : "❌"}
-                      </td>
-                      <td className="p-2 border">
-                        <div className="flex gap-2 justify-center flex-wrap">
-                          <button
-                            onClick={() => handleEdit(u)}
-                            className="bg-yellow-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-yellow-600"
-                          >
-                            <Edit className="w-4 h-4" /> Editar
-                          </button>
-                          <button
-                            onClick={() => handleGestionarRoles(u)}
-                            className="bg-purple-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-purple-600"
-                          >
-                            <Shield className="w-4 h-4" /> Roles
-                          </button>
-                          <button
-                            onClick={() => handleDelete(u.id)}
-                            className="bg-red-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" /> Eliminar
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        {/* 🔹 Tabla Responsive (DataTable) */}
+        <DataTable 
+            data={usuarios} 
+            columns={columns} 
+            emptyMessage="No hay usuarios registrados."
+        />
 
         {/* 🔹 Modal de edición */}
         <EditModal
@@ -369,7 +361,7 @@ export default function Usuarios() {
           }}
           isLoading={false}
         >
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
             {/* Roles actuales */}
             <div>
               <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">

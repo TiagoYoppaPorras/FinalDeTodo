@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import MainLayout from "../../components/layout/MainLayout";
 import api from "../../api/Client";
-import { Users, PlusCircle, Trash2, Edit, UserPlus, UserCheck } from "lucide-react";
+import DataTable from "../../components/common/DataTable"; // 👈 IMPORTANTE
 import EditModal from "../../components/common/EditModal";
-import { FileText } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import {
+  Users,
+  PlusCircle,
+  Trash2,
+  Edit,
+  UserPlus,
+  UserCheck,
+  FileText,
+} from "lucide-react";
 
 export default function Pacientes() {
   const [pacientes, setPacientes] = useState([]);
@@ -14,7 +22,7 @@ export default function Pacientes() {
 
   // Estados para creación
   const [modalCrearAbierto, setModalCrearAbierto] = useState(false);
-  const [modoCreacion, setModoCreacion] = useState("nuevo"); // "nuevo" o "existente"
+  const [modoCreacion, setModoCreacion] = useState("nuevo");
   const [formNuevo, setFormNuevo] = useState({
     nombre: "",
     email: "",
@@ -23,7 +31,7 @@ export default function Pacientes() {
     telefono: "",
     obra_social: "",
     historial_medico: "",
-    direccion: ""
+    direccion: "",
   });
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState("");
   const [formExistente, setFormExistente] = useState({
@@ -31,7 +39,7 @@ export default function Pacientes() {
     telefono: "",
     obra_social: "",
     historial_medico: "",
-    direccion: ""
+    direccion: "",
   });
 
   // Estados para edición
@@ -39,7 +47,7 @@ export default function Pacientes() {
   const [datosEdicion, setDatosEdicion] = useState({});
   const [isLoadingSave, setIsLoadingSave] = useState(false);
 
-  // --- 🔹 Fetch pacientes ---
+  // --- Fetch Data ---
   const fetchPacientes = async () => {
     try {
       const res = await api.get("/pacientes/");
@@ -49,7 +57,6 @@ export default function Pacientes() {
     }
   };
 
-  // --- 🔹 Fetch usuarios disponibles ---
   const fetchUsuariosDisponibles = async () => {
     try {
       const res = await api.get("/pacientes/usuarios-disponibles");
@@ -68,7 +75,7 @@ export default function Pacientes() {
     cargarDatos();
   }, []);
 
-  // --- 🔹 Abrir modal de creación ---
+  // --- Handlers ---
   const abrirModalCrear = () => {
     setModalCrearAbierto(true);
     setModoCreacion("nuevo");
@@ -80,7 +87,7 @@ export default function Pacientes() {
       telefono: "",
       obra_social: "",
       historial_medico: "",
-      direccion: ""
+      direccion: "",
     });
     setUsuarioSeleccionado("");
     setFormExistente({
@@ -88,20 +95,17 @@ export default function Pacientes() {
       telefono: "",
       obra_social: "",
       historial_medico: "",
-      direccion: ""
+      direccion: "",
     });
   };
 
-  // --- 🔹 Crear paciente ---
   const handleCrear = async () => {
     setIsLoadingSave(true);
     try {
       if (modoCreacion === "nuevo") {
-        // Crear usuario nuevo + paciente
         await api.post("/pacientes/con-usuario", formNuevo);
         alert("✅ Paciente creado correctamente");
       } else {
-        // Asociar a usuario existente
         if (!usuarioSeleccionado) {
           alert("⚠️ Debes seleccionar un usuario");
           setIsLoadingSave(false);
@@ -109,11 +113,10 @@ export default function Pacientes() {
         }
         await api.post("/pacientes/", {
           user_id: parseInt(usuarioSeleccionado),
-          ...formExistente
+          ...formExistente,
         });
         alert("✅ Paciente asociado correctamente");
       }
-      
       setModalCrearAbierto(false);
       await Promise.all([fetchPacientes(), fetchUsuariosDisponibles()]);
     } catch (err) {
@@ -124,7 +127,6 @@ export default function Pacientes() {
     }
   };
 
-  // --- 🔹 Abrir modal de edición ---
   const handleEdit = (paciente) => {
     setEditando(paciente.id);
     setDatosEdicion({
@@ -132,11 +134,10 @@ export default function Pacientes() {
       telefono: paciente.telefono || "",
       obra_social: paciente.obra_social || "",
       historial_medico: paciente.historial_medico || "",
-      direccion: paciente.direccion || ""
+      direccion: paciente.direccion || "",
     });
   };
 
-  // --- 🔹 Actualizar paciente ---
   const handleUpdate = async () => {
     setIsLoadingSave(true);
     try {
@@ -153,11 +154,10 @@ export default function Pacientes() {
     }
   };
 
-  // --- 🔹 Eliminar paciente ---
-  const handleDelete = async (id) => {
+  const handleDelete = async (item) => {
     if (!confirm("¿Eliminar paciente?")) return;
     try {
-      await api.delete(`/pacientes/${id}`);
+      await api.delete(`/pacientes/${item.id}`); // DataTable pasa el objeto completo
       fetchPacientes();
       fetchUsuariosDisponibles();
       alert("✅ Paciente eliminado");
@@ -167,87 +167,96 @@ export default function Pacientes() {
     }
   };
 
+  // 🔹 DEFINICIÓN DE COLUMNAS PARA DATATABLE
+  // Esto es lo que permite que se transforme en Cards en móvil
+  const columns = [
+    {
+      key: "nombre",
+      label: "Nombre",
+      render: (item) => (
+        <span className="font-medium">{item.user?.nombre || "N/A"}</span>
+      ),
+    },
+    {
+      key: "email",
+      label: "Email",
+      render: (item) => (
+        <span className="text-gray-500">{item.user?.email || "N/A"}</span>
+      ),
+    },
+    { key: "dni", label: "DNI" },
+    { key: "telefono", label: "Teléfono" },
+    { key: "obra_social", label: "Obra Social" },
+    {
+      key: "acciones",
+      label: "Acciones",
+      render: (item) => (
+        <div className="flex gap-2 justify-end md:justify-start">
+          <button
+            onClick={() => handleEdit(item)}
+            className="bg-yellow-100 text-yellow-700 p-1.5 rounded hover:bg-yellow-200 transition"
+            title="Editar"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => handleDelete(item)}
+            className="bg-red-100 text-red-700 p-1.5 rounded hover:bg-red-200 transition"
+            title="Eliminar"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() =>
+              navigate(`/historias-clinicas?paciente_id=${item.id}`)
+            }
+            className="bg-blue-100 text-blue-700 p-1.5 rounded hover:bg-blue-200 transition"
+            title="Ver Historias Clínicas"
+          >
+            <FileText className="w-4 h-4" />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
   if (loading) {
     return (
       <MainLayout>
-        <div className="p-6 text-gray-600">Cargando pacientes...</div>
+        <div className="p-6 text-gray-600 flex justify-center">
+          Cargando datos...
+        </div>
       </MainLayout>
     );
   }
 
   return (
     <MainLayout>
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="p-4 md:p-6 space-y-6">
+        {" "}
+        {/* Padding ajustado para móvil */}
+        {/* Encabezado */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-            <Users className="text-blue-600 w-6 h-6" /> Gestión de Pacientes
+            <Users className="text-blue-600 w-6 h-6" />
+            Gestión de Pacientes
           </h1>
           <button
             onClick={abrirModalCrear}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full md:w-auto"
           >
             <PlusCircle className="w-5 h-5" /> Crear Paciente
           </button>
         </div>
-
-        {/* Tabla de pacientes */}
-        <div className="bg-white border rounded-lg shadow-sm p-6">
-          {pacientes.length === 0 ? (
-            <p className="text-gray-500">No hay pacientes registrados.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border text-sm">
-                <thead className="bg-gray-100 text-gray-700">
-                  <tr>
-                    <th className="p-2 border">Nombre</th>
-                    <th className="p-2 border">Email</th>
-                    <th className="p-2 border">DNI</th>
-                    <th className="p-2 border">Teléfono</th>
-                    <th className="p-2 border">Obra Social</th>
-                    <th className="p-2 border">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pacientes.map((p) => (
-                    <tr key={p.id} className="border-t hover:bg-gray-50">
-                      <td className="p-2 border">{p.user?.nombre || "N/A"}</td>
-                      <td className="p-2 border">{p.user?.email || "N/A"}</td>
-                      <td className="p-2 border">{p.dni || "-"}</td>
-                      <td className="p-2 border">{p.telefono || "-"}</td>
-                      <td className="p-2 border">{p.obra_social || "-"}</td>
-                      <td className="p-2 border">{p.historial_medico || "-"}</td>
-                      <td className="p-2 border">
-                        <div className="flex gap-2 justify-center">
-                          <button
-                            onClick={() => handleEdit(p)}
-                            className="bg-yellow-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-yellow-600"
-                          >
-                            <Edit className="w-4 h-4" /> Editar
-                          </button>
-                          <button
-                            onClick={() => handleDelete(p.id)}
-                            className="bg-red-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" /> Eliminar
-                          </button>
-                          <button
-      onClick={() => navigate(`/historias-clinicas?paciente_id=${p.id}`)}
-      className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
-      title="Ver historias clínicas"
-    >
-      <FileText className="w-4 h-4" />
-    </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Modal de creación */}
+        {/* 🔹 AQUÍ USAMOS EL COMPONENTE RESPONSIVE */}
+        <DataTable
+          data={pacientes}
+          columns={columns}
+          emptyMessage="No hay pacientes registrados."
+        />
+        {/* Modal de Creación */}
         <EditModal
           isOpen={modalCrearAbierto}
           onClose={() => setModalCrearAbierto(false)}
@@ -255,11 +264,14 @@ export default function Pacientes() {
           onSave={handleCrear}
           isLoading={isLoadingSave}
         >
-          <div className="space-y-4">
-            {/* Selector de modo */}
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto p-1">
+            {" "}
+            {/* Scroll interno para modales largos en móvil */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-700 mb-3">Modo de Creación</h4>
-              <div className="flex gap-4">
+              <h4 className="font-semibold text-gray-700 mb-3">
+                Modo de Creación
+              </h4>
+              <div className="flex flex-col sm:flex-row gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
@@ -270,7 +282,7 @@ export default function Pacientes() {
                     className="w-4 h-4"
                   />
                   <UserPlus className="w-5 h-5 text-green-600" />
-                  <span className="text-sm font-medium">Crear Usuario Nuevo</span>
+                  <span className="text-sm font-medium">Usuario Nuevo</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -282,71 +294,92 @@ export default function Pacientes() {
                     className="w-4 h-4"
                   />
                   <UserCheck className="w-5 h-5 text-blue-600" />
-                  <span className="text-sm font-medium">Asociar a Usuario Existente</span>
+                  <span className="text-sm font-medium">Usuario Existente</span>
                 </label>
               </div>
             </div>
-
-            {/* Formulario para crear usuario nuevo */}
             {modoCreacion === "nuevo" && (
               <>
                 <div className="bg-gray-50 rounded-lg p-3">
-                  <h5 className="font-medium text-gray-700 mb-2">Datos del Usuario</h5>
+                  <h5 className="font-medium text-gray-700 mb-2">
+                    Datos del Usuario
+                  </h5>
                   <div className="space-y-3">
                     <input
                       type="text"
                       placeholder="Nombre completo"
                       className="w-full border border-gray-300 rounded-lg p-2"
                       value={formNuevo.nombre}
-                      onChange={(e) => setFormNuevo({ ...formNuevo, nombre: e.target.value })}
+                      onChange={(e) =>
+                        setFormNuevo({ ...formNuevo, nombre: e.target.value })
+                      }
                     />
                     <input
                       type="email"
                       placeholder="Email"
                       className="w-full border border-gray-300 rounded-lg p-2"
                       value={formNuevo.email}
-                      onChange={(e) => setFormNuevo({ ...formNuevo, email: e.target.value })}
+                      onChange={(e) =>
+                        setFormNuevo({ ...formNuevo, email: e.target.value })
+                      }
                     />
                     <input
                       type="password"
                       placeholder="Contraseña"
                       className="w-full border border-gray-300 rounded-lg p-2"
                       value={formNuevo.password}
-                      onChange={(e) => setFormNuevo({ ...formNuevo, password: e.target.value })}
+                      onChange={(e) =>
+                        setFormNuevo({ ...formNuevo, password: e.target.value })
+                      }
                     />
                   </div>
                 </div>
-
                 <div className="bg-gray-50 rounded-lg p-3">
-                  <h5 className="font-medium text-gray-700 mb-2">Datos del Paciente</h5>
-                  <div className="grid grid-cols-2 gap-3">
+                  <h5 className="font-medium text-gray-700 mb-2">
+                    Datos Personales
+                  </h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <input
                       type="text"
                       placeholder="DNI"
                       className="border border-gray-300 rounded-lg p-2"
                       value={formNuevo.dni}
-                      onChange={(e) => setFormNuevo({ ...formNuevo, dni: e.target.value })}
+                      onChange={(e) =>
+                        setFormNuevo({ ...formNuevo, dni: e.target.value })
+                      }
                     />
                     <input
                       type="text"
                       placeholder="Teléfono"
                       className="border border-gray-300 rounded-lg p-2"
                       value={formNuevo.telefono}
-                      onChange={(e) => setFormNuevo({ ...formNuevo, telefono: e.target.value })}
+                      onChange={(e) =>
+                        setFormNuevo({ ...formNuevo, telefono: e.target.value })
+                      }
                     />
                     <input
                       type="text"
                       placeholder="Obra Social"
                       className="border border-gray-300 rounded-lg p-2"
                       value={formNuevo.obra_social}
-                      onChange={(e) => setFormNuevo({ ...formNuevo, obra_social: e.target.value })}
+                      onChange={(e) =>
+                        setFormNuevo({
+                          ...formNuevo,
+                          obra_social: e.target.value,
+                        })
+                      }
                     />
                     <input
                       type="text"
                       placeholder="Dirección"
                       className="border border-gray-300 rounded-lg p-2"
                       value={formNuevo.direccion}
-                      onChange={(e) => setFormNuevo({ ...formNuevo, direccion: e.target.value })}
+                      onChange={(e) =>
+                        setFormNuevo({
+                          ...formNuevo,
+                          direccion: e.target.value,
+                        })
+                      }
                     />
                   </div>
                   <textarea
@@ -354,13 +387,16 @@ export default function Pacientes() {
                     className="w-full border border-gray-300 rounded-lg p-2 mt-3"
                     rows="3"
                     value={formNuevo.historial_medico}
-                    onChange={(e) => setFormNuevo({ ...formNuevo, historial_medico: e.target.value })}
+                    onChange={(e) =>
+                      setFormNuevo({
+                        ...formNuevo,
+                        historial_medico: e.target.value,
+                      })
+                    }
                   />
                 </div>
               </>
             )}
-
-            {/* Formulario para asociar a usuario existente */}
             {modoCreacion === "existente" && (
               <>
                 <div>
@@ -369,9 +405,7 @@ export default function Pacientes() {
                   </label>
                   {usuariosDisponibles.length === 0 ? (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-                      ⚠️ No hay usuarios con rol "paciente" disponibles.
-                      <br />
-                      Primero crea un usuario y asígnale el rol "paciente" desde Gestión de Usuarios.
+                      ⚠️ No hay usuarios disponibles.
                     </div>
                   ) : (
                     <select
@@ -388,38 +422,59 @@ export default function Pacientes() {
                     </select>
                   )}
                 </div>
-
                 {usuariosDisponibles.length > 0 && (
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <h5 className="font-medium text-gray-700 mb-2">Datos del Paciente</h5>
-                    <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-50 rounded-lg p-3 mt-3">
+                    <h5 className="font-medium text-gray-700 mb-2">
+                      Datos Personales
+                    </h5>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <input
                         type="text"
                         placeholder="DNI"
                         className="border border-gray-300 rounded-lg p-2"
                         value={formExistente.dni}
-                        onChange={(e) => setFormExistente({ ...formExistente, dni: e.target.value })}
+                        onChange={(e) =>
+                          setFormExistente({
+                            ...formExistente,
+                            dni: e.target.value,
+                          })
+                        }
                       />
                       <input
                         type="text"
                         placeholder="Teléfono"
                         className="border border-gray-300 rounded-lg p-2"
                         value={formExistente.telefono}
-                        onChange={(e) => setFormExistente({ ...formExistente, telefono: e.target.value })}
+                        onChange={(e) =>
+                          setFormExistente({
+                            ...formExistente,
+                            telefono: e.target.value,
+                          })
+                        }
                       />
                       <input
                         type="text"
                         placeholder="Obra Social"
                         className="border border-gray-300 rounded-lg p-2"
                         value={formExistente.obra_social}
-                        onChange={(e) => setFormExistente({ ...formExistente, obra_social: e.target.value })}
+                        onChange={(e) =>
+                          setFormExistente({
+                            ...formExistente,
+                            obra_social: e.target.value,
+                          })
+                        }
                       />
                       <input
                         type="text"
                         placeholder="Dirección"
                         className="border border-gray-300 rounded-lg p-2"
                         value={formExistente.direccion}
-                        onChange={(e) => setFormExistente({ ...formExistente, direccion: e.target.value })}
+                        onChange={(e) =>
+                          setFormExistente({
+                            ...formExistente,
+                            direccion: e.target.value,
+                          })
+                        }
                       />
                     </div>
                     <textarea
@@ -427,7 +482,12 @@ export default function Pacientes() {
                       className="w-full border border-gray-300 rounded-lg p-2 mt-3"
                       rows="3"
                       value={formExistente.historial_medico}
-                      onChange={(e) => setFormExistente({ ...formExistente, historial_medico: e.target.value })}
+                      onChange={(e) =>
+                        setFormExistente({
+                          ...formExistente,
+                          historial_medico: e.target.value,
+                        })
+                      }
                     />
                   </div>
                 )}
@@ -435,8 +495,7 @@ export default function Pacientes() {
             )}
           </div>
         </EditModal>
-
-        {/* Modal de edición */}
+        {/* Modal de Edición */}
         <EditModal
           isOpen={editando !== null}
           onClose={() => {
@@ -448,51 +507,84 @@ export default function Pacientes() {
           isLoading={isLoadingSave}
         >
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            {/* Agregado grid-cols-1 para que en móvil sea una columna */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">DNI</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  DNI
+                </label>
                 <input
                   type="text"
                   className="w-full border border-gray-300 rounded-lg p-2"
                   value={datosEdicion.dni || ""}
-                  onChange={(e) => setDatosEdicion({ ...datosEdicion, dni: e.target.value })}
+                  onChange={(e) =>
+                    setDatosEdicion({ ...datosEdicion, dni: e.target.value })
+                  }
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Teléfono
+                </label>
                 <input
                   type="text"
                   className="w-full border border-gray-300 rounded-lg p-2"
                   value={datosEdicion.telefono || ""}
-                  onChange={(e) => setDatosEdicion({ ...datosEdicion, telefono: e.target.value })}
+                  onChange={(e) =>
+                    setDatosEdicion({
+                      ...datosEdicion,
+                      telefono: e.target.value,
+                    })
+                  }
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Obra Social</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Obra Social
+                </label>
                 <input
                   type="text"
                   className="w-full border border-gray-300 rounded-lg p-2"
                   value={datosEdicion.obra_social || ""}
-                  onChange={(e) => setDatosEdicion({ ...datosEdicion, obra_social: e.target.value })}
+                  onChange={(e) =>
+                    setDatosEdicion({
+                      ...datosEdicion,
+                      obra_social: e.target.value,
+                    })
+                  }
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Dirección
+                </label>
                 <input
                   type="text"
                   className="w-full border border-gray-300 rounded-lg p-2"
                   value={datosEdicion.direccion || ""}
-                  onChange={(e) => setDatosEdicion({ ...datosEdicion, direccion: e.target.value })}
+                  onChange={(e) =>
+                    setDatosEdicion({
+                      ...datosEdicion,
+                      direccion: e.target.value,
+                    })
+                  }
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Historial Médico</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Historial Médico
+              </label>
               <textarea
                 className="w-full border border-gray-300 rounded-lg p-2"
                 rows="4"
                 value={datosEdicion.historial_medico || ""}
-                onChange={(e) => setDatosEdicion({ ...datosEdicion, historial_medico: e.target.value })}
+                onChange={(e) =>
+                  setDatosEdicion({
+                    ...datosEdicion,
+                    historial_medico: e.target.value,
+                  })
+                }
               />
             </div>
           </div>

@@ -3,6 +3,7 @@ import MainLayout from "../../components/layout/MainLayout";
 import api from "../../api/Client";
 import { Stethoscope, PlusCircle, Trash2, Edit, UserPlus, UserCheck } from "lucide-react";
 import EditModal from "../../components/common/EditModal";
+import DataTable from "../../components/common/DataTable"; // 👈 Importamos el componente responsive
 
 export default function Kinesiologos() {
   const [kinesiologos, setKinesiologos] = useState([]);
@@ -169,6 +170,52 @@ export default function Kinesiologos() {
     }
   };
 
+  // 🔹 DEFINICIÓN DE COLUMNAS PARA DATATABLE
+  const columns = [
+    { 
+      key: "nombre", 
+      label: "Nombre", 
+      render: (k) => k.user?.nombre || "N/A" 
+    },
+    { 
+      key: "email", 
+      label: "Email", 
+      render: (k) => k.user?.email || "N/A" 
+    },
+    { 
+      key: "matricula", 
+      label: "Matrícula", 
+      render: (k) => (
+        <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">
+          {k.matricula_profesional}
+        </span>
+      )
+    },
+    { key: "especialidad", label: "Especialidad", render: (k) => k.especialidad || "-" },
+    { 
+      key: "acciones", 
+      label: "Acciones", 
+      render: (k) => (
+        <div className="flex gap-2 justify-end md:justify-start">
+          <button
+            onClick={() => handleEdit(k)}
+            className="bg-yellow-500 text-white p-1.5 rounded hover:bg-yellow-600"
+            title="Editar"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleDelete(k.id)}
+            className="bg-red-500 text-white p-1.5 rounded hover:bg-red-600"
+            title="Eliminar"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      )
+    }
+  ];
+
   if (loading) {
     return (
       <MainLayout>
@@ -179,69 +226,25 @@ export default function Kinesiologos() {
 
   return (
     <MainLayout>
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="p-4 md:p-6 space-y-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
             <Stethoscope className="text-green-600 w-6 h-6" /> Gestión de Kinesiólogos
           </h1>
           <button
             onClick={abrirModalCrear}
-            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
           >
             <PlusCircle className="w-5 h-5" /> Crear Kinesiólogo
           </button>
         </div>
 
-        {/* Tabla de kinesiólogos */}
-        <div className="bg-white border rounded-lg shadow-sm p-6">
-          {kinesiologos.length === 0 ? (
-            <p className="text-gray-500">No hay kinesiólogos registrados.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border text-sm">
-                <thead className="bg-gray-100 text-gray-700">
-                  <tr>
-                    <th className="p-2 border">Nombre</th>
-                    <th className="p-2 border">Email</th>
-                    <th className="p-2 border">Matrícula</th>
-                    <th className="p-2 border">Especialidad</th>
-                    <th className="p-2 border">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {kinesiologos.map((k) => (
-                    <tr key={k.id} className="border-t hover:bg-gray-50">
-                      <td className="p-2 border">{k.user?.nombre || "N/A"}</td>
-                      <td className="p-2 border">{k.user?.email || "N/A"}</td>
-                      <td className="p-2 border">
-                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">
-                          {k.matricula_profesional}
-                        </span>
-                      </td>
-                      <td className="p-2 border">{k.especialidad || "-"}</td>
-                      <td className="p-2 border">
-                        <div className="flex gap-2 justify-center">
-                          <button
-                            onClick={() => handleEdit(k)}
-                            className="bg-yellow-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-yellow-600"
-                          >
-                            <Edit className="w-4 h-4" /> Editar
-                          </button>
-                          <button
-                            onClick={() => handleDelete(k.id)}
-                            className="bg-red-500 text-white px-2 py-1 rounded text-xs flex items-center gap-1 hover:bg-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" /> Eliminar
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        {/* 🔹 TABLA RESPONSIVE */}
+        <DataTable 
+          data={kinesiologos} 
+          columns={columns} 
+          emptyMessage="No hay kinesiólogos registrados." 
+        />
 
         {/* Modal de creación */}
         <EditModal
@@ -251,11 +254,11 @@ export default function Kinesiologos() {
           onSave={handleCrear}
           isLoading={isLoadingSave}
         >
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto p-1">
             {/* Selector de modo */}
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <h4 className="font-semibold text-gray-700 mb-3">Modo de Creación</h4>
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
