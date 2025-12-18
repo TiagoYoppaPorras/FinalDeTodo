@@ -23,10 +23,26 @@ export default function Register() {
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    // Limpiamos el error cuando el usuario empieza a escribir de nuevo
+    if (error) setError("");
+  };
+
+  // 🔹 Validación simple en el frontend
+  const validarFormulario = () => {
+    if (formData.password.length < 8) {
+      setError("La contraseña debe tener al menos 8 caracteres.");
+      return false;
+    }
+    // Puedes agregar más validaciones aquí (mayúsculas, números, etc.)
+    return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // 1. Validamos antes de enviar para evitar llamadas innecesarias
+    if (!validarFormulario()) return;
+
     setIsLoading(true);
     setError("");
 
@@ -41,19 +57,32 @@ export default function Register() {
       // Si el backend devuelve un token (como el login), logueamos directo
       if (data.access_token) {
         await login(data.access_token);
-        alertaExito("¡Registro exitoso! Bienvenido."); // ✨
+        alertaExito("¡Registro exitoso! Bienvenido.");
         navigate("/dashboard");
       } else {
         // Si solo crea el usuario sin token, redirigimos al login
-        alertaExito("Cuenta creada. Por favor inicia sesión."); // ✨
+        alertaExito("Cuenta creada. Por favor inicia sesión.");
         navigate("/login");
       }
     } catch (err) {
       console.error("❌ Error en registro:", err);
-      setError(
-        err.response?.data?.detail ||
-          "No se pudo registrar el usuario. Intente nuevamente."
-      );
+      
+      // 🔹 AQUÍ ESTABA EL ERROR DEL PANTALLAZO BLANCO
+      // FastAPI devuelve 422 como un array de objetos. React crashea si intentas renderizar objetos.
+      if (err.response && err.response.data && err.response.data.detail) {
+        const detail = err.response.data.detail;
+        
+        if (Array.isArray(detail)) {
+            // Si es un array (errores de validación de pydantic), unimos los mensajes
+            const mensajes = detail.map(d => d.msg).join(". ");
+            setError(mensajes);
+        } else {
+            // Si es un string simple
+            setError(detail);
+        }
+      } else {
+        setError("No se pudo registrar el usuario. Intente nuevamente.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -121,6 +150,11 @@ export default function Register() {
               {isVisible ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
+          
+          {/* Texto de ayuda para la contraseña */}
+          <p className="text-xs text-gray-500 px-1">
+            Mínimo 8 caracteres.
+          </p>
 
           <button
             type="submit"
