@@ -1,7 +1,7 @@
 from pydantic import BaseModel, field_validator
 from typing import Optional
-import re
 from app.schemas.user_schema import UserOut
+from app.core.validaciones import validar_dni, validar_telefono, capitalizar_texto
 
 class PacienteBase(BaseModel):
     dni: Optional[str] = None
@@ -10,41 +10,33 @@ class PacienteBase(BaseModel):
     historial_medico: Optional[str] = None
     direccion: Optional[str] = None
 
-    # 🛡️ VALIDACIÓN DE DNI: Solo números
     @field_validator('dni')
-    def validar_dni(cls, v):
-        if v is not None:
-            # Eliminar puntos y espacios por si acaso
-            clean_dni = v.replace(".", "").replace(" ", "").strip()
-            if not clean_dni.isdigit():
-                raise ValueError('El DNI debe contener solo números')
-            if len(clean_dni) < 6 or len(clean_dni) > 10:
-                raise ValueError('El DNI debe tener entre 6 y 10 dígitos')
-            return clean_dni
-        return v
+    def validar_dni_field(cls, v):
+        """Valida formato de DNI usando función centralizada"""
+        return validar_dni(v)
 
-    # 🛡️ VALIDACIÓN DE TELÉFONO: Limpieza básica
     @field_validator('telefono')
-    def validar_telefono(cls, v):
-        if v is not None:
-            # Permitir +, -, espacios y números
-            if not re.match(r'^[\d\+\-\s]+$', v):
-                raise ValueError('El teléfono contiene caracteres inválidos')
-            return v.strip()
-        return v
+    def validar_telefono_field(cls, v):
+        """Valida formato de teléfono usando función centralizada"""
+        return validar_telefono(v)
 
-    # 🛡️ CAPITALIZAR TEXTOS
     @field_validator('obra_social', 'direccion')
     def capitalizar_textos(cls, v):
-        if v:
-            return v.strip().title() # "OSDE BINARIO" -> "Osde Binario"
-        return v
+        """Capitaliza textos automáticamente"""
+        return capitalizar_texto(v)
+    
+    @field_validator('historial_medico')
+    def limpiar_historial(cls, v):
+        """Limpia espacios innecesarios del historial médico"""
+        if not v or v.strip() == '':
+            return None
+        return v.strip()
 
 class PacienteCreate(PacienteBase):
     user_id: int
 
 class PacienteUpdate(BaseModel):
-    """Schema para actualizar paciente"""
+    """Schema para actualizar paciente (todos los campos opcionales)"""
     dni: Optional[str] = None
     telefono: Optional[str] = None
     obra_social: Optional[str] = None
@@ -52,13 +44,26 @@ class PacienteUpdate(BaseModel):
     direccion: Optional[str] = None
 
     @field_validator('dni')
-    def validar_dni(cls, v):
-        if v is not None:
-            clean_dni = v.replace(".", "").replace(" ", "").strip()
-            if not clean_dni.isdigit():
-                raise ValueError('El DNI debe contener solo números')
-            return clean_dni
-        return v
+    def validar_dni_field(cls, v):
+        """Valida formato de DNI usando función centralizada"""
+        return validar_dni(v)
+
+    @field_validator('telefono')
+    def validar_telefono_field(cls, v):
+        """Valida formato de teléfono usando función centralizada"""
+        return validar_telefono(v)
+    
+    @field_validator('obra_social', 'direccion')
+    def capitalizar_textos(cls, v):
+        """Capitaliza textos automáticamente"""
+        return capitalizar_texto(v)
+    
+    @field_validator('historial_medico')
+    def limpiar_historial(cls, v):
+        """Limpia espacios innecesarios del historial médico"""
+        if not v or v.strip() == '':
+            return None
+        return v.strip()
 
     class Config:
         from_attributes = True

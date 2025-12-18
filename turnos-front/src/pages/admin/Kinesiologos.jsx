@@ -1,45 +1,49 @@
 import { useEffect, useState } from "react";
 import MainLayout from "../../components/layout/MainLayout";
 import api from "../../api/Client";
-import { Stethoscope, PlusCircle, Trash2, Edit, UserPlus, UserCheck, AlertCircle } from "lucide-react";
+import {
+  Stethoscope,
+  PlusCircle,
+  Trash2,
+  Edit,
+  UserPlus,
+  UserCheck,
+} from "lucide-react";
 import EditModal from "../../components/common/EditModal";
-import DataTable from "../../components/common/DataTable"; 
+import DataTable from "../../components/common/DataTable";
 import { alertaExito, alertaError, confirmarAccion } from "../../utils/alerts";
 
-// Componente visual externo
-const InputConError = ({ type = "text", placeholder, value, onChange, error }) => (
-    <div className="w-full">
-        <div className="relative">
-            <input 
-                type={type} 
-                placeholder={placeholder}
-                className={`w-full border rounded p-2 outline-none transition-colors
-                    ${error ? "border-red-500 bg-red-50" : "border-gray-300 focus:border-blue-500"}`}
-                value={value} 
-                onChange={onChange}
-            />
-            {error && <AlertCircle className="absolute right-3 top-2.5 h-5 w-5 text-red-500 pointer-events-none" />}
-        </div>
-        {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-    </div>
-);
+// 1. Nuevos imports y eliminación de componente local
+import InputConError from "../../components/common/InputConError";
+import {
+  validarEmail,
+  validarPassword,
+  validarNombre,
+  validarMatricula,
+} from "../../utils/validaciones";
+import { procesarErrorBackend } from "../../utils/errorHandler";
 
 export default function Kinesiologos() {
   const [kinesiologos, setKinesiologos] = useState([]);
   const [usuariosDisponibles, setUsuariosDisponibles] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [errores, setErrores] = useState({});
 
   // Estados para creación
   const [modalCrearAbierto, setModalCrearAbierto] = useState(false);
   const [modoCreacion, setModoCreacion] = useState("nuevo");
   const [formNuevo, setFormNuevo] = useState({
-    nombre: "", email: "", password: "", matricula_profesional: "", especialidad: ""
+    nombre: "",
+    email: "",
+    password: "",
+    matricula_profesional: "",
+    especialidad: "",
   });
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState("");
   const [formExistente, setFormExistente] = useState({
-    matricula_profesional: "", especialidad: ""
+    matricula_profesional: "",
+    especialidad: "",
   });
 
   // Estados para edición
@@ -81,20 +85,60 @@ export default function Kinesiologos() {
     setModalCrearAbierto(true);
     setModoCreacion("nuevo");
     setErrores({});
-    setFormNuevo({ nombre: "", email: "", password: "", matricula_profesional: "", especialidad: "" });
+    setFormNuevo({
+      nombre: "",
+      email: "",
+      password: "",
+      matricula_profesional: "",
+      especialidad: "",
+    });
     setUsuarioSeleccionado("");
     setFormExistente({ matricula_profesional: "", especialidad: "" });
   };
 
-  // Helpers de cambio
+  // 2. Helpers de cambio y validación real-time (Nuevo usuario)
   const handleChangeNuevo = (campo, valor) => {
-      setFormNuevo(prev => ({ ...prev, [campo]: valor }));
-      if (errores[campo]) setErrores(prev => ({ ...prev, [campo]: null }));
+    setFormNuevo((prev) => ({ ...prev, [campo]: valor }));
+
+    // Validar en tiempo real
+    let error = null;
+    switch (campo) {
+      case "email":
+        error = validarEmail(valor);
+        break;
+      case "password":
+        error = validarPassword(valor);
+        break;
+      case "nombre":
+        error = validarNombre(valor);
+        break;
+      case "matricula_profesional":
+        error = validarMatricula(valor);
+        break;
+      default:
+        break;
+    }
+
+    if (error) {
+      setErrores((prev) => ({ ...prev, [campo]: error }));
+    } else {
+      setErrores((prev) => ({ ...prev, [campo]: null }));
+    }
   };
 
+  // 3. Helpers de cambio y validación real-time (Usuario existente)
   const handleChangeExistente = (campo, valor) => {
-      setFormExistente(prev => ({ ...prev, [campo]: valor }));
-      if (errores[campo]) setErrores(prev => ({ ...prev, [campo]: null }));
+    setFormExistente((prev) => ({ ...prev, [campo]: valor }));
+
+    // Validar en tiempo real
+    if (campo === "matricula_profesional") {
+      const error = validarMatricula(valor);
+      if (error) {
+        setErrores((prev) => ({ ...prev, [campo]: error }));
+      } else {
+        setErrores((prev) => ({ ...prev, [campo]: null }));
+      }
+    }
   };
 
   // --- Crear kinesiólogo ---
@@ -105,10 +149,11 @@ export default function Kinesiologos() {
 
     try {
       if (modoCreacion === "nuevo") {
+        // Mantenemos esta validación rápida de campo obligatorio antes de enviar
         if (!formNuevo.matricula_profesional) {
-            setErrores({ matricula_profesional: "Obligatoria" });
-            setIsLoadingSave(false);
-            return;
+          setErrores({ matricula_profesional: "Obligatoria" });
+          setIsLoadingSave(false);
+          return;
         }
         await api.post("/kinesiologos/con-usuario", formNuevo);
         alertaExito("Kinesiólogo creado correctamente");
@@ -123,22 +168,27 @@ export default function Kinesiologos() {
           setIsLoadingSave(false);
           return;
         }
-        await api.post("/kinesiologos/", { user_id: parseInt(usuarioSeleccionado), ...formExistente });
+        await api.post("/kinesiologos/", {
+          user_id: parseInt(usuarioSeleccionado),
+          ...formExistente,
+        });
         alertaExito("Kinesiólogo asociado correctamente");
       }
-      
+
       setModalCrearAbierto(false);
       await Promise.all([fetchKinesiologos(), fetchUsuariosDisponibles()]);
     } catch (err) {
       console.error("❌ Error creando kinesiólogo:", err);
-      // Mapeo básico de errores
-      const msg = err.response?.data?.detail;
-      if (typeof msg === 'string') {
-          if (msg.includes("email")) setErrores({ email: msg });
-          else if (msg.includes("matrícula")) setErrores({ matricula_profesional: msg });
-          else alertaError(msg);
-      } else {
-          alertaError("Error al crear kinesiólogo");
+
+      // 4. Manejo de errores actualizado con procesarErrorBackend
+      const { erroresCampos, mensajeGeneral } = procesarErrorBackend(err);
+
+      if (Object.keys(erroresCampos).length > 0) {
+        setErrores(erroresCampos);
+      }
+
+      if (mensajeGeneral) {
+        alertaError(mensajeGeneral);
       }
     } finally {
       setIsLoadingSave(false);
@@ -151,7 +201,7 @@ export default function Kinesiologos() {
     setErrores({});
     setDatosEdicion({
       matricula_profesional: kinesiologo.matricula_profesional || "",
-      especialidad: kinesiologo.especialidad || ""
+      especialidad: kinesiologo.especialidad || "",
     });
   };
 
@@ -172,7 +222,10 @@ export default function Kinesiologos() {
       fetchKinesiologos();
     } catch (err) {
       console.error("❌ Error actualizando kinesiólogo:", err);
-      alertaError("Error al actualizar kinesiólogo");
+      // Usamos también el procesador de errores aquí por consistencia
+      const { erroresCampos, mensajeGeneral } = procesarErrorBackend(err);
+      if (Object.keys(erroresCampos).length > 0) setErrores(erroresCampos);
+      if (mensajeGeneral) alertaError(mensajeGeneral);
     } finally {
       setIsLoadingSave(false);
     }
@@ -180,7 +233,10 @@ export default function Kinesiologos() {
 
   // --- Eliminar kinesiólogo ---
   const handleDelete = async (id) => {
-    const confirmado = await confirmarAccion("¿Eliminar kinesiólogo?", "Esta acción no se puede deshacer.");
+    const confirmado = await confirmarAccion(
+      "¿Eliminar kinesiólogo?",
+      "Esta acción no se puede deshacer."
+    );
     if (!confirmado) return;
 
     try {
@@ -195,28 +251,60 @@ export default function Kinesiologos() {
   };
 
   const columns = [
-    { key: "nombre", label: "Nombre", render: (k) => k.user?.nombre || "N/A" },
-    { key: "email", label: "Email", render: (k) => k.user?.email || "N/A" },
-    { key: "matricula", label: "Matrícula", render: (k) => <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">{k.matricula_profesional}</span> },
-    { key: "especialidad", label: "Especialidad", render: (k) => k.especialidad || "-" },
-    { 
-      key: "acciones", 
-      label: "Acciones", 
+    {
+      key: "nombre",
+      label: "Nombre",
+      render: (k) => k.user?.nombre || "N/A",
+    },
+    {
+      key: "email",
+      label: "Email",
+      render: (k) => k.user?.email || "N/A",
+    },
+    {
+      key: "matricula",
+      label: "Matrícula",
+      render: (k) => (
+        <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">
+          {k.matricula_profesional}
+        </span>
+      ),
+    },
+    {
+      key: "especialidad",
+      label: "Especialidad",
+      render: (k) => k.especialidad || "-",
+    },
+    {
+      key: "acciones",
+      label: "Acciones",
       render: (k) => (
         <div className="flex gap-2 justify-end md:justify-start">
-          <button onClick={() => handleEdit(k)} className="bg-yellow-500 text-white p-1.5 rounded hover:bg-yellow-600" title="Editar">
+          <button
+            onClick={() => handleEdit(k)}
+            className="bg-yellow-500 text-white p-1.5 rounded hover:bg-yellow-600"
+            title="Editar"
+          >
             <Edit className="w-4 h-4" />
           </button>
-          <button onClick={() => handleDelete(k.id)} className="bg-red-500 text-white p-1.5 rounded hover:bg-red-600" title="Eliminar">
+          <button
+            onClick={() => handleDelete(k.id)}
+            className="bg-red-500 text-white p-1.5 rounded hover:bg-red-600"
+            title="Eliminar"
+          >
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
-      )
-    }
+      ),
+    },
   ];
 
   if (loading) {
-    return <MainLayout><div className="p-6 text-gray-600">Cargando kinesiólogos...</div></MainLayout>;
+    return (
+      <MainLayout>
+        <div className="p-6 text-gray-600">Cargando kinesiólogos...</div>
+      </MainLayout>
+    );
   }
 
   return (
@@ -224,68 +312,195 @@ export default function Kinesiologos() {
       <div className="p-4 md:p-6 space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-            <Stethoscope className="text-green-600 w-6 h-6" /> Gestión de Kinesiólogos
+            <Stethoscope className="text-green-600 w-6 h-6" /> Gestión de
+            Kinesiólogos
           </h1>
-          <button onClick={abrirModalCrear} className="w-full md:w-auto flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+          <button
+            onClick={abrirModalCrear}
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+          >
             <PlusCircle className="w-5 h-5" /> Crear Kinesiólogo
           </button>
         </div>
 
-        <DataTable data={kinesiologos} columns={columns} emptyMessage="No hay kinesiólogos registrados." />
+        <DataTable
+          data={kinesiologos}
+          columns={columns}
+          emptyMessage="No hay kinesiólogos registrados."
+        />
 
         {/* Modal de creación */}
-        <EditModal isOpen={modalCrearAbierto} onClose={() => setModalCrearAbierto(false)} title="Crear Kinesiólogo" onSave={handleCrear} isLoading={isLoadingSave}>
+        <EditModal
+          isOpen={modalCrearAbierto}
+          onClose={() => setModalCrearAbierto(false)}
+          title="Crear Kinesiólogo"
+          onSave={handleCrear}
+          isLoading={isLoadingSave}
+        >
           <div className="space-y-4 max-h-[70vh] overflow-y-auto p-1">
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-700 mb-3">Modo de Creación</h4>
+              <h4 className="font-semibold text-gray-700 mb-3">
+                Modo de Creación
+              </h4>
               <div className="flex flex-col sm:flex-row gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="modo" value="nuevo" checked={modoCreacion === "nuevo"} onChange={(e) => setModoCreacion(e.target.value)} className="w-4 h-4" />
-                  <UserPlus className="w-5 h-5 text-green-600" /> <span className="text-sm font-medium">Usuario Nuevo</span>
+                  <input
+                    type="radio"
+                    name="modo"
+                    value="nuevo"
+                    checked={modoCreacion === "nuevo"}
+                    onChange={(e) => setModoCreacion(e.target.value)}
+                    className="w-4 h-4"
+                  />
+                  <UserPlus className="w-5 h-5 text-green-600" />{" "}
+                  <span className="text-sm font-medium">Usuario Nuevo</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="modo" value="existente" checked={modoCreacion === "existente"} onChange={(e) => setModoCreacion(e.target.value)} className="w-4 h-4" />
-                  <UserCheck className="w-5 h-5 text-blue-600" /> <span className="text-sm font-medium">Usuario Existente</span>
+                  <input
+                    type="radio"
+                    name="modo"
+                    value="existente"
+                    checked={modoCreacion === "existente"}
+                    onChange={(e) => setModoCreacion(e.target.value)}
+                    className="w-4 h-4"
+                  />
+                  <UserCheck className="w-5 h-5 text-blue-600" />{" "}
+                  <span className="text-sm font-medium">Usuario Existente</span>
                 </label>
               </div>
             </div>
             {modoCreacion === "nuevo" && (
               <>
                 <div className="bg-gray-50 rounded-lg p-3 space-y-3">
-                    <h5 className="font-medium text-gray-700">Datos Usuario</h5>
-                    <InputConError placeholder="Nombre completo *" value={formNuevo.nombre} onChange={e => handleChangeNuevo("nombre", e.target.value)} error={errores.nombre}/>
-                    <InputConError type="email" placeholder="Email *" value={formNuevo.email} onChange={e => handleChangeNuevo("email", e.target.value)} error={errores.email}/>
-                    <InputConError type="password" placeholder="Contraseña *" value={formNuevo.password} onChange={e => handleChangeNuevo("password", e.target.value)} error={errores.password}/>
+                  <h5 className="font-medium text-gray-700">Datos Usuario</h5>
+                  <InputConError
+                    placeholder="Nombre completo *"
+                    value={formNuevo.nombre}
+                    onChange={(e) =>
+                      handleChangeNuevo("nombre", e.target.value)
+                    }
+                    error={errores.nombre}
+                  />
+                  <InputConError
+                    type="email"
+                    placeholder="Email *"
+                    value={formNuevo.email}
+                    onChange={(e) => handleChangeNuevo("email", e.target.value)}
+                    error={errores.email}
+                  />
+                  <InputConError
+                    type="password"
+                    placeholder="Contraseña *"
+                    value={formNuevo.password}
+                    onChange={(e) =>
+                      handleChangeNuevo("password", e.target.value)
+                    }
+                    error={errores.password}
+                  />
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3 space-y-3">
-                    <h5 className="font-medium text-gray-700">Datos Profesional</h5>
-                    <InputConError placeholder="Matrícula *" value={formNuevo.matricula_profesional} onChange={e => handleChangeNuevo("matricula_profesional", e.target.value)} error={errores.matricula_profesional}/>
-                    <InputConError placeholder="Especialidad" value={formNuevo.especialidad} onChange={e => handleChangeNuevo("especialidad", e.target.value)} error={errores.especialidad}/>
+                  <h5 className="font-medium text-gray-700">
+                    Datos Profesional
+                  </h5>
+                  <InputConError
+                    placeholder="Matrícula *"
+                    value={formNuevo.matricula_profesional}
+                    onChange={(e) =>
+                      handleChangeNuevo("matricula_profesional", e.target.value)
+                    }
+                    error={errores.matricula_profesional}
+                  />
+                  <InputConError
+                    placeholder="Especialidad"
+                    value={formNuevo.especialidad}
+                    onChange={(e) =>
+                      handleChangeNuevo("especialidad", e.target.value)
+                    }
+                    error={errores.especialidad}
+                  />
                 </div>
               </>
             )}
             {modoCreacion === "existente" && (
-                <>
-                    <select className="w-full border rounded p-2" value={usuarioSeleccionado} onChange={e => setUsuarioSeleccionado(e.target.value)}>
-                        <option value="">-- Seleccionar Usuario --</option>
-                        {usuariosDisponibles.map(u => <option key={u.id} value={u.id}>{u.nombre} ({u.email})</option>)}
-                    </select>
-                    {usuariosDisponibles.length > 0 && (
-                        <div className="bg-gray-50 rounded-lg p-3 space-y-3 mt-2">
-                            <InputConError placeholder="Matrícula *" value={formExistente.matricula_profesional} onChange={e => handleChangeExistente("matricula_profesional", e.target.value)} error={errores.matricula_profesional}/>
-                            <InputConError placeholder="Especialidad" value={formExistente.especialidad} onChange={e => handleChangeExistente("especialidad", e.target.value)} error={errores.especialidad}/>
-                        </div>
-                    )}
-                </>
+              <>
+                <select
+                  className="w-full border rounded p-2"
+                  value={usuarioSeleccionado}
+                  onChange={(e) => setUsuarioSeleccionado(e.target.value)}
+                >
+                  <option value="">-- Seleccionar Usuario --</option>
+                  {usuariosDisponibles.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.nombre} ({u.email})
+                    </option>
+                  ))}
+                </select>
+                {usuariosDisponibles.length > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-3 mt-2">
+                    <InputConError
+                      placeholder="Matrícula *"
+                      value={formExistente.matricula_profesional}
+                      onChange={(e) =>
+                        handleChangeExistente(
+                          "matricula_profesional",
+                          e.target.value
+                        )
+                      }
+                      error={errores.matricula_profesional}
+                    />
+                    <InputConError
+                      placeholder="Especialidad"
+                      value={formExistente.especialidad}
+                      onChange={(e) =>
+                        handleChangeExistente("especialidad", e.target.value)
+                      }
+                      error={errores.especialidad}
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
         </EditModal>
 
-        <EditModal isOpen={editando !== null} onClose={() => { setEditando(null); setDatosEdicion({}); }} title="Editar Kinesiólogo" onSave={handleUpdate} isLoading={isLoadingSave}>
-            <div className="space-y-4">
-                <div><label className="block text-sm font-medium">Matrícula *</label><InputConError value={datosEdicion.matricula_profesional || ""} onChange={e => setDatosEdicion({...datosEdicion, matricula_profesional: e.target.value})} error={errores.matricula_profesional}/></div>
-                <div><label className="block text-sm font-medium">Especialidad</label><InputConError value={datosEdicion.especialidad || ""} onChange={e => setDatosEdicion({...datosEdicion, especialidad: e.target.value})} error={errores.especialidad}/></div>
+        <EditModal
+          isOpen={editando !== null}
+          onClose={() => {
+            setEditando(null);
+            setDatosEdicion({});
+          }}
+          title="Editar Kinesiólogo"
+          onSave={handleUpdate}
+          isLoading={isLoadingSave}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium">Matrícula *</label>
+              <InputConError
+                value={datosEdicion.matricula_profesional || ""}
+                onChange={(e) =>
+                  setDatosEdicion({
+                    ...datosEdicion,
+                    matricula_profesional: e.target.value,
+                  })
+                }
+                error={errores.matricula_profesional}
+              />
             </div>
+            <div>
+              <label className="block text-sm font-medium">Especialidad</label>
+              <InputConError
+                value={datosEdicion.especialidad || ""}
+                onChange={(e) =>
+                  setDatosEdicion({
+                    ...datosEdicion,
+                    especialidad: e.target.value,
+                  })
+                }
+                error={errores.especialidad}
+              />
+            </div>
+          </div>
         </EditModal>
       </div>
     </MainLayout>
