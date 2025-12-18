@@ -26,6 +26,17 @@ export default function NuevoTurnoPaciente() {
     motivo: "",
   });
 
+  // 🔹 Helpers para Fecha y Hora actual (Local)
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const todayStr = `${year}-${month}-${day}`; // Formato YYYY-MM-DD
+
+  const currentHours = String(now.getHours()).padStart(2, "0");
+  const currentMinutes = String(now.getMinutes()).padStart(2, "0");
+  const currentTimeStr = `${currentHours}:${currentMinutes}`; // Formato HH:MM
+
   // 🔹 Cargar Servicios, Kinesiólogos, Salas y Perfil del Paciente
   useEffect(() => {
     const fetchData = async () => {
@@ -75,7 +86,13 @@ export default function NuevoTurnoPaciente() {
     e.preventDefault();
 
     if (!pacienteId) {
-      alertaError("No se encontró el perfil del paciente asociado a este usuario."); // ✨
+      alertaError("No se encontró el perfil del paciente asociado a este usuario.");
+      return;
+    }
+
+    // Validación de hora pasada (por si el navegador no soporta min en time o se fuerza el input)
+    if (nuevoTurno.fecha === todayStr && nuevoTurno.hora < currentTimeStr) {
+      alertaError("No puedes seleccionar un horario que ya ha pasado.");
       return;
     }
 
@@ -111,7 +128,7 @@ export default function NuevoTurnoPaciente() {
       console.log("Enviando payload:", payload);
 
       await api.post("/turnos/", payload);
-      alertaExito("Turno solicitado correctamente"); // ✨
+      alertaExito("Turno solicitado correctamente");
 
       // Resetear formulario
       setNuevoTurno({
@@ -125,9 +142,9 @@ export default function NuevoTurnoPaciente() {
     } catch (err) {
       console.error("❌ Error solicitando turno:", err);
       if (err.response && err.response.data) {
-        alertaError(`Error: ${JSON.stringify(err.response.data.detail)}`); // ✨
+        alertaError(`Error: ${JSON.stringify(err.response.data.detail)}`);
       } else {
-        alertaError("Error al solicitar turno"); // ✨
+        alertaError("Error al solicitar turno");
       }
     }
   };
@@ -173,6 +190,7 @@ export default function NuevoTurnoPaciente() {
               </label>
               <input
                 type="date"
+                min={todayStr} // 👈 Restringe días anteriores a hoy
                 className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500"
                 value={nuevoTurno.fecha}
                 onChange={(e) =>
@@ -211,6 +229,8 @@ export default function NuevoTurnoPaciente() {
             </label>
             <input
               type="time"
+              // 👈 Si la fecha elegida es hoy, el mínimo es la hora actual; si no, es libre
+              min={nuevoTurno.fecha === todayStr ? currentTimeStr : undefined}
               className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500"
               value={nuevoTurno.hora}
               onChange={(e) =>
