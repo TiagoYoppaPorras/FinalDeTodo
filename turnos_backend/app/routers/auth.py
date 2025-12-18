@@ -13,13 +13,11 @@ from pydantic import BaseModel, EmailStr
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
-# 📦 Schema de login simple
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
-
-# 🔐 LOGIN (solo email + password)
+# 🔐 LOGIN
 @router.post("/login")
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
@@ -29,11 +27,17 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     if not user.activo:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario inactivo")
 
-    access_token_expires = timedelta(minutes=60)
-    access_token = create_access_token(data={"sub": str(user.id)}, expires_delta=access_token_expires)
+    access_token_expires = timedelta(minutes=60 * 24) # 24 horas
+    
+    # 🔴 CORRECCIÓN: 
+    # 1. 'sub' debe ser el EMAIL (porque security.py busca por email).
+    # 2. Agregamos 'id' explícitamente para que el Front lo lea fácil.
+    access_token = create_access_token(
+        data={"sub": user.email, "id": user.id}, 
+        expires_delta=access_token_expires
+    )
 
     return {"access_token": access_token, "token_type": "bearer"}
-
 
 # 🧾 REGISTRO
 @router.post("/register")
@@ -56,4 +60,3 @@ def register(new_user: UserCreate, db: Session = Depends(get_db)):
         db.commit()
 
     return {"message": "Usuario registrado correctamente"}
-

@@ -1,17 +1,37 @@
 import { useEffect, useState } from "react";
 import MainLayout from "../../components/layout/MainLayout";
 import api from "../../api/Client";
-import { Users, PlusCircle, Trash2, Edit, Shield } from "lucide-react";
+import { Users, PlusCircle, Trash2, Edit, Shield, AlertCircle } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import EditModal from "../../components/common/EditModal";
 import DataTable from "../../components/common/DataTable";
-// 👇 Importamos las alertas
 import { alertaExito, alertaError, confirmarAccion } from "../../utils/alerts";
+
+// Componente InputConError fuera para evitar re-render
+const InputConError = ({ type = "text", placeholder, value, onChange, error }) => (
+    <div className="w-full">
+        <div className="relative">
+            <input 
+                type={type} 
+                placeholder={placeholder}
+                className={`w-full border rounded p-2 outline-none transition-colors
+                    ${error ? "border-red-500 bg-red-50 focus:border-red-500" : "border-gray-300 focus:border-blue-500"}`}
+                value={value} 
+                onChange={onChange}
+            />
+            {error && <AlertCircle className="absolute right-3 top-2.5 h-5 w-5 text-red-500 pointer-events-none" />}
+        </div>
+        {error && <p className="text-xs text-red-500 mt-1 font-medium">{error}</p>}
+    </div>
+);
 
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
   const [roles, setRoles] = useState([]);
   const [nuevoUsuario, setNuevoUsuario] = useState({ nombre: "", email: "", password: "" });
+  
+  // Estado de errores
+  const [errores, setErrores] = useState({});
 
   const [editando, setEditando] = useState(null);
   const [datosEdicion, setDatosEdicion] = useState({});
@@ -48,16 +68,44 @@ export default function Usuarios() {
     }
   }, [loading, user]);
 
+  const handleChangeNuevo = (campo, valor) => {
+      setNuevoUsuario({ ...nuevoUsuario, [campo]: valor });
+      if (errores[campo]) setErrores({ ...errores, [campo]: null });
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
+    setErrores({});
+
     try {
       await api.post("/auth/register", nuevoUsuario);
-      alertaExito("Usuario creado correctamente"); // ✨
+      alertaExito("Usuario creado correctamente");
       setNuevoUsuario({ nombre: "", email: "", password: "" });
       fetchUsuarios();
     } catch (err) {
       console.error("❌ Error creando usuario:", err);
-      alertaError("Error al crear usuario."); // ✨
+      const detail = err.response?.data?.detail;
+
+      // 🔴 LÓGICA MEJORADA PARA CAPTURAR ERRORES DE PYDANTIC (422)
+      if (Array.isArray(detail)) {
+          const nuevosErrores = {};
+          detail.forEach(error => {
+              // Pydantic devuelve: "Value error, La contraseña debe..." -> Limpiamos el prefijo
+              const msgLimpio = error.msg.replace("Value error, ", "");
+              
+              // Mapeamos el campo que falló
+              if (error.loc.includes("password")) nuevosErrores.password = msgLimpio;
+              if (error.loc.includes("email")) nuevosErrores.email = msgLimpio;
+              if (error.loc.includes("nombre")) nuevosErrores.nombre = msgLimpio;
+          });
+          setErrores(nuevosErrores);
+      } else if (typeof detail === 'string') {
+          // Errores simples (ej: "El usuario ya existe")
+          if (detail.toLowerCase().includes("existe")) setErrores({ email: detail });
+          else alertaError(detail);
+      } else {
+          alertaError("Error al crear usuario.");
+      }
     }
   };
 
@@ -74,29 +122,29 @@ export default function Usuarios() {
     setIsLoadingSave(true);
     try {
       await api.put(`/usuarios/${editando}`, datosEdicion);
-      alertaExito("Usuario actualizado correctamente"); // ✨
+      alertaExito("Usuario actualizado correctamente");
       setEditando(null);
       setDatosEdicion({});
       fetchUsuarios();
     } catch (err) {
       console.error("❌ Error actualizando usuario:", err);
-      alertaError("Error al actualizar usuario."); // ✨
+      alertaError("Error al actualizar usuario.");
     } finally {
       setIsLoadingSave(false);
     }
   };
 
   const handleDelete = async (id) => {
-    const confirmado = await confirmarAccion("¿Eliminar usuario?", "Esta acción no se puede deshacer."); // ✨
+    const confirmado = await confirmarAccion("¿Eliminar usuario?", "Esta acción no se puede deshacer.");
     if (!confirmado) return;
 
     try {
       await api.delete(`/usuarios/${id}`);
       fetchUsuarios();
-      alertaExito("Usuario eliminado"); // ✨
+      alertaExito("Usuario eliminado");
     } catch (err) {
       console.error("Error eliminando usuario:", err);
-      alertaError("Error al eliminar usuario."); // ✨
+      alertaError("Error al eliminar usuario.");
     }
   };
 
@@ -109,31 +157,31 @@ export default function Usuarios() {
     setIsLoadingRoles(true);
     try {
       await api.post(`/roles/${gestionandoRoles}/roles/${roleId}`);
-      alertaExito("Rol asignado correctamente"); // ✨
+      alertaExito("Rol asignado correctamente");
       const rol = roles.find(r => r.id === roleId);
       setRolesUsuario([...rolesUsuario, rol]);
       fetchUsuarios();
     } catch (err) {
       console.error("❌ Error asignando rol:", err);
-      alertaError("Error al asignar rol"); // ✨
+      alertaError("Error al asignar rol");
     } finally {
       setIsLoadingRoles(false);
     }
   };
 
   const handleRemoverRol = async (roleId) => {
-    const confirmado = await confirmarAccion("¿Remover rol?", "El usuario perderá los permisos asociados."); // ✨
+    const confirmado = await confirmarAccion("¿Remover rol?", "El usuario perderá los permisos asociados.");
     if (!confirmado) return;
 
     setIsLoadingRoles(true);
     try {
       await api.delete(`/roles/${gestionandoRoles}/roles/${roleId}`);
-      alertaExito("Rol removido correctamente"); // ✨
+      alertaExito("Rol removido correctamente");
       setRolesUsuario(rolesUsuario.filter(r => r.id !== roleId));
       fetchUsuarios();
     } catch (err) {
       console.error("❌ Error removiendo rol:", err);
-      alertaError("Error al remover rol"); // ✨
+      alertaError("Error al remover rol");
     } finally {
       setIsLoadingRoles(false);
     }
@@ -173,14 +221,34 @@ export default function Usuarios() {
     <MainLayout>
       <div className="p-4 md:p-6 space-y-6">
         <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2"><Users className="text-blue-600 w-6 h-6" /> Gestión de Usuarios</h1>
+        
+        {/* FORMULARIO DE CREACIÓN MEJORADO */}
         <form onSubmit={handleCreate} className="bg-white p-4 md:p-6 rounded-lg shadow-sm border space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input type="text" placeholder="Nombre completo" className="border p-2 rounded w-full" value={nuevoUsuario.nombre} onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, nombre: e.target.value })} required />
-            <input type="email" placeholder="Correo electrónico" className="border p-2 rounded w-full" value={nuevoUsuario.email} onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, email: e.target.value })} required />
-            <input type="password" placeholder="Contraseña" className="border p-2 rounded w-full" value={nuevoUsuario.password} onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, password: e.target.value })} required />
+            <InputConError 
+                placeholder="Nombre completo" 
+                value={nuevoUsuario.nombre} 
+                onChange={(e) => handleChangeNuevo("nombre", e.target.value)} 
+                error={errores.nombre}
+            />
+            <InputConError 
+                type="email"
+                placeholder="Correo electrónico" 
+                value={nuevoUsuario.email} 
+                onChange={(e) => handleChangeNuevo("email", e.target.value)} 
+                error={errores.email}
+            />
+            <InputConError 
+                type="password"
+                placeholder="Contraseña" 
+                value={nuevoUsuario.password} 
+                onChange={(e) => handleChangeNuevo("password", e.target.value)} 
+                error={errores.password}
+            />
           </div>
           <button type="submit" className="flex items-center justify-center md:justify-start gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full md:w-auto"><PlusCircle className="w-5 h-5" /> Crear Usuario</button>
         </form>
+
         <DataTable data={usuarios} columns={columns} emptyMessage="No hay usuarios registrados." />
         
         <EditModal isOpen={editando !== null} onClose={() => { setEditando(null); setDatosEdicion({}); }} title="Editar Usuario" onSave={handleUpdate} isLoading={isLoadingSave}>

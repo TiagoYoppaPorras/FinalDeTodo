@@ -1,16 +1,35 @@
 import { useEffect, useState } from "react";
 import MainLayout from "../../components/layout/MainLayout";
 import api from "../../api/Client";
-import { Stethoscope, PlusCircle, Trash2, Edit, UserPlus, UserCheck } from "lucide-react";
+import { Stethoscope, PlusCircle, Trash2, Edit, UserPlus, UserCheck, AlertCircle } from "lucide-react";
 import EditModal from "../../components/common/EditModal";
 import DataTable from "../../components/common/DataTable"; 
-// 👇 Importamos las alertas
 import { alertaExito, alertaError, confirmarAccion } from "../../utils/alerts";
+
+// Componente visual externo
+const InputConError = ({ type = "text", placeholder, value, onChange, error }) => (
+    <div className="w-full">
+        <div className="relative">
+            <input 
+                type={type} 
+                placeholder={placeholder}
+                className={`w-full border rounded p-2 outline-none transition-colors
+                    ${error ? "border-red-500 bg-red-50" : "border-gray-300 focus:border-blue-500"}`}
+                value={value} 
+                onChange={onChange}
+            />
+            {error && <AlertCircle className="absolute right-3 top-2.5 h-5 w-5 text-red-500 pointer-events-none" />}
+        </div>
+        {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+    </div>
+);
 
 export default function Kinesiologos() {
   const [kinesiologos, setKinesiologos] = useState([]);
   const [usuariosDisponibles, setUsuariosDisponibles] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  const [errores, setErrores] = useState({});
 
   // Estados para creación
   const [modalCrearAbierto, setModalCrearAbierto] = useState(false);
@@ -61,43 +80,66 @@ export default function Kinesiologos() {
   const abrirModalCrear = () => {
     setModalCrearAbierto(true);
     setModoCreacion("nuevo");
+    setErrores({});
     setFormNuevo({ nombre: "", email: "", password: "", matricula_profesional: "", especialidad: "" });
     setUsuarioSeleccionado("");
     setFormExistente({ matricula_profesional: "", especialidad: "" });
   };
 
+  // Helpers de cambio
+  const handleChangeNuevo = (campo, valor) => {
+      setFormNuevo(prev => ({ ...prev, [campo]: valor }));
+      if (errores[campo]) setErrores(prev => ({ ...prev, [campo]: null }));
+  };
+
+  const handleChangeExistente = (campo, valor) => {
+      setFormExistente(prev => ({ ...prev, [campo]: valor }));
+      if (errores[campo]) setErrores(prev => ({ ...prev, [campo]: null }));
+  };
+
   // --- Crear kinesiólogo ---
-  const handleCrear = async () => {
+  const handleCrear = async (e) => {
+    e.preventDefault();
     setIsLoadingSave(true);
+    setErrores({});
+
     try {
       if (modoCreacion === "nuevo") {
         if (!formNuevo.matricula_profesional) {
-          alertaError("La matrícula profesional es obligatoria"); // ✨
-          setIsLoadingSave(false);
-          return;
+            setErrores({ matricula_profesional: "Obligatoria" });
+            setIsLoadingSave(false);
+            return;
         }
         await api.post("/kinesiologos/con-usuario", formNuevo);
-        alertaExito("Kinesiólogo creado correctamente"); // ✨
+        alertaExito("Kinesiólogo creado correctamente");
       } else {
         if (!usuarioSeleccionado) {
-          alertaError("Debes seleccionar un usuario"); // ✨
+          alertaError("Debes seleccionar un usuario");
           setIsLoadingSave(false);
           return;
         }
         if (!formExistente.matricula_profesional) {
-          alertaError("La matrícula profesional es obligatoria"); // ✨
+          setErrores({ matricula_profesional: "Obligatoria" });
           setIsLoadingSave(false);
           return;
         }
         await api.post("/kinesiologos/", { user_id: parseInt(usuarioSeleccionado), ...formExistente });
-        alertaExito("Kinesiólogo asociado correctamente"); // ✨
+        alertaExito("Kinesiólogo asociado correctamente");
       }
       
       setModalCrearAbierto(false);
       await Promise.all([fetchKinesiologos(), fetchUsuariosDisponibles()]);
     } catch (err) {
       console.error("❌ Error creando kinesiólogo:", err);
-      alertaError(err.response?.data?.detail || "Error al crear kinesiólogo"); // ✨
+      // Mapeo básico de errores
+      const msg = err.response?.data?.detail;
+      if (typeof msg === 'string') {
+          if (msg.includes("email")) setErrores({ email: msg });
+          else if (msg.includes("matrícula")) setErrores({ matricula_profesional: msg });
+          else alertaError(msg);
+      } else {
+          alertaError("Error al crear kinesiólogo");
+      }
     } finally {
       setIsLoadingSave(false);
     }
@@ -106,6 +148,7 @@ export default function Kinesiologos() {
   // --- Abrir modal de edición ---
   const handleEdit = (kinesiologo) => {
     setEditando(kinesiologo.id);
+    setErrores({});
     setDatosEdicion({
       matricula_profesional: kinesiologo.matricula_profesional || "",
       especialidad: kinesiologo.especialidad || ""
@@ -115,20 +158,21 @@ export default function Kinesiologos() {
   // --- Actualizar kinesiólogo ---
   const handleUpdate = async () => {
     setIsLoadingSave(true);
+    setErrores({});
     try {
       if (!datosEdicion.matricula_profesional) {
-        alertaError("La matrícula profesional es obligatoria"); // ✨
+        setErrores({ matricula_profesional: "Obligatoria" });
         setIsLoadingSave(false);
         return;
       }
       await api.put(`/kinesiologos/${editando}`, datosEdicion);
-      alertaExito("Kinesiólogo actualizado correctamente"); // ✨
+      alertaExito("Kinesiólogo actualizado correctamente");
       setEditando(null);
       setDatosEdicion({});
       fetchKinesiologos();
     } catch (err) {
       console.error("❌ Error actualizando kinesiólogo:", err);
-      alertaError("Error al actualizar kinesiólogo"); // ✨
+      alertaError("Error al actualizar kinesiólogo");
     } finally {
       setIsLoadingSave(false);
     }
@@ -136,17 +180,17 @@ export default function Kinesiologos() {
 
   // --- Eliminar kinesiólogo ---
   const handleDelete = async (id) => {
-    const confirmado = await confirmarAccion("¿Eliminar kinesiólogo?", "Esta acción no se puede deshacer."); // ✨
+    const confirmado = await confirmarAccion("¿Eliminar kinesiólogo?", "Esta acción no se puede deshacer.");
     if (!confirmado) return;
 
     try {
       await api.delete(`/kinesiologos/${id}`);
       fetchKinesiologos();
       fetchUsuariosDisponibles();
-      alertaExito("Kinesiólogo eliminado"); // ✨
+      alertaExito("Kinesiólogo eliminado");
     } catch (err) {
       console.error("❌ Error eliminando kinesiólogo:", err);
-      alertaError("Error al eliminar kinesiólogo"); // ✨
+      alertaError(err.response?.data?.detail || "Error al eliminar");
     }
   };
 
@@ -209,14 +253,14 @@ export default function Kinesiologos() {
               <>
                 <div className="bg-gray-50 rounded-lg p-3 space-y-3">
                     <h5 className="font-medium text-gray-700">Datos Usuario</h5>
-                    <input type="text" placeholder="Nombre completo *" className="w-full border rounded p-2" value={formNuevo.nombre} onChange={e => setFormNuevo({...formNuevo, nombre: e.target.value})} required/>
-                    <input type="email" placeholder="Email *" className="w-full border rounded p-2" value={formNuevo.email} onChange={e => setFormNuevo({...formNuevo, email: e.target.value})} required/>
-                    <input type="password" placeholder="Contraseña *" className="w-full border rounded p-2" value={formNuevo.password} onChange={e => setFormNuevo({...formNuevo, password: e.target.value})} required/>
+                    <InputConError placeholder="Nombre completo *" value={formNuevo.nombre} onChange={e => handleChangeNuevo("nombre", e.target.value)} error={errores.nombre}/>
+                    <InputConError type="email" placeholder="Email *" value={formNuevo.email} onChange={e => handleChangeNuevo("email", e.target.value)} error={errores.email}/>
+                    <InputConError type="password" placeholder="Contraseña *" value={formNuevo.password} onChange={e => handleChangeNuevo("password", e.target.value)} error={errores.password}/>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3 space-y-3">
                     <h5 className="font-medium text-gray-700">Datos Profesional</h5>
-                    <input type="text" placeholder="Matrícula *" className="w-full border rounded p-2" value={formNuevo.matricula_profesional} onChange={e => setFormNuevo({...formNuevo, matricula_profesional: e.target.value})} required/>
-                    <input type="text" placeholder="Especialidad" className="w-full border rounded p-2" value={formNuevo.especialidad} onChange={e => setFormNuevo({...formNuevo, especialidad: e.target.value})}/>
+                    <InputConError placeholder="Matrícula *" value={formNuevo.matricula_profesional} onChange={e => handleChangeNuevo("matricula_profesional", e.target.value)} error={errores.matricula_profesional}/>
+                    <InputConError placeholder="Especialidad" value={formNuevo.especialidad} onChange={e => handleChangeNuevo("especialidad", e.target.value)} error={errores.especialidad}/>
                 </div>
               </>
             )}
@@ -228,8 +272,8 @@ export default function Kinesiologos() {
                     </select>
                     {usuariosDisponibles.length > 0 && (
                         <div className="bg-gray-50 rounded-lg p-3 space-y-3 mt-2">
-                            <input type="text" placeholder="Matrícula *" className="w-full border rounded p-2" value={formExistente.matricula_profesional} onChange={e => setFormExistente({...formExistente, matricula_profesional: e.target.value})} required/>
-                            <input type="text" placeholder="Especialidad" className="w-full border rounded p-2" value={formExistente.especialidad} onChange={e => setFormExistente({...formExistente, especialidad: e.target.value})}/>
+                            <InputConError placeholder="Matrícula *" value={formExistente.matricula_profesional} onChange={e => handleChangeExistente("matricula_profesional", e.target.value)} error={errores.matricula_profesional}/>
+                            <InputConError placeholder="Especialidad" value={formExistente.especialidad} onChange={e => handleChangeExistente("especialidad", e.target.value)} error={errores.especialidad}/>
                         </div>
                     )}
                 </>
@@ -239,8 +283,8 @@ export default function Kinesiologos() {
 
         <EditModal isOpen={editando !== null} onClose={() => { setEditando(null); setDatosEdicion({}); }} title="Editar Kinesiólogo" onSave={handleUpdate} isLoading={isLoadingSave}>
             <div className="space-y-4">
-                <div><label className="block text-sm font-medium">Matrícula *</label><input type="text" className="w-full border rounded p-2" value={datosEdicion.matricula_profesional || ""} onChange={e => setDatosEdicion({...datosEdicion, matricula_profesional: e.target.value})} required/></div>
-                <div><label className="block text-sm font-medium">Especialidad</label><input type="text" className="w-full border rounded p-2" value={datosEdicion.especialidad || ""} onChange={e => setDatosEdicion({...datosEdicion, especialidad: e.target.value})}/></div>
+                <div><label className="block text-sm font-medium">Matrícula *</label><InputConError value={datosEdicion.matricula_profesional || ""} onChange={e => setDatosEdicion({...datosEdicion, matricula_profesional: e.target.value})} error={errores.matricula_profesional}/></div>
+                <div><label className="block text-sm font-medium">Especialidad</label><InputConError value={datosEdicion.especialidad || ""} onChange={e => setDatosEdicion({...datosEdicion, especialidad: e.target.value})} error={errores.especialidad}/></div>
             </div>
         </EditModal>
       </div>

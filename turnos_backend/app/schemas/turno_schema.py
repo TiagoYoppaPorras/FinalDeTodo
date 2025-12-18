@@ -9,12 +9,12 @@ from app.schemas.sala_schema import SalaOut
 class TurnoBase(BaseModel):
     fecha: date
     hora_inicio: time
-    hora_fin: Optional[time] = None # Hacemos esto opcional en la base
+    hora_fin: Optional[time] = None 
     estado: str
     motivo: Optional[str] = None
     observaciones: Optional[str] = None
     paciente_id: int
-    kinesiologo_id: Optional[int] = None # Importante: Opcional para solicitudes de pacientes
+    kinesiologo_id: Optional[int] = None
     servicio_id: Optional[int] = None
     sala_id: Optional[int] = None
 
@@ -22,7 +22,6 @@ class TurnoCreate(TurnoBase):
     pass
 
 class TurnoUpdate(BaseModel):
-    """Schema para actualizar turno (todos los campos opcionales)"""
     fecha: Optional[date] = None
     hora_inicio: Optional[time] = None
     hora_fin: Optional[time] = None
