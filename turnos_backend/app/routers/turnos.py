@@ -19,6 +19,45 @@ router = APIRouter(
 )
 
 # ─────────────────────────────────────────────
+# 🛡️ Validaciones Auxiliares (NUEVO)
+# ─────────────────────────────────────────────
+
+def validar_reglas_horarias(fecha_turno: date, hora_inicio: time):
+    """
+    Centraliza las validaciones de negocio:
+    1. No fines de semana.
+    2. No horarios fuera de rango (22hs a 08hs).
+    3. No fechas pasadas.
+    """
+    
+    # 1. Validar Fines de Semana (Sábado=5, Domingo=6)
+    if fecha_turno.weekday() >= 5:
+        raise HTTPException(
+            status_code=400, 
+            detail="No se pueden agendar turnos los fines de semana (Sábados y Domingos)."
+        )
+
+    # 2. Validar Rango Horario (08:00 a 22:00)
+    # Si es menor a las 8 AM o mayor/igual a las 22 PM
+    if hora_inicio < time(8, 0) or hora_inicio >= time(22, 0):
+        raise HTTPException(
+            status_code=400, 
+            detail="El horario de atención es de 08:00 a 22:00 hs."
+        )
+
+    # 3. Validar Fecha Pasada
+    # Combinamos fecha y hora para comparar con 'ahora'
+    ahora = datetime.now()
+    turno_datetime = datetime.combine(fecha_turno, hora_inicio)
+    
+    if turno_datetime < ahora:
+        raise HTTPException(
+            status_code=400, 
+            detail="No se pueden agendar turnos en el pasado."
+        )
+
+
+# ─────────────────────────────────────────────
 # 🧠 Validar superposición de horarios
 # ─────────────────────────────────────────────
 def validar_superposicion(
@@ -36,7 +75,8 @@ def validar_superposicion(
         Turno.kinesiologo_id == turno_data.kinesiologo_id,
         Turno.fecha == turno_data.fecha,
         Turno.hora_inicio < turno_data.hora_fin,
-        Turno.hora_fin > turno_data.hora_inicio
+        Turno.hora_fin > turno_data.hora_inicio,
+        Turno.estado != "cancelado" # IMPORTANTE: Ignorar turnos cancelados al validar superposición
     )
 
     if exclude_id:
@@ -52,7 +92,10 @@ def validar_superposicion(
 def crear_turno(turno: TurnoCreate, db: Session = Depends(get_db)):
     """Crear un nuevo turno con validación de superposición"""
 
-    # 1. Calcular hora_fin si no viene o si es igual a inicio, basándonos en el servicio
+    # 🛑 1. Validaciones Generales (Fin de semana, hora, pasado)
+    validar_reglas_horarias(turno.fecha, turno.hora_inicio)
+
+    # 2. Calcular hora_fin si no viene o si es igual a inicio, basándonos en el servicio
     if turno.servicio_id and (not turno.hora_fin or turno.hora_fin == turno.hora_inicio):
         servicio = db.query(Servicio).filter(Servicio.id == turno.servicio_id).first()
         if servicio:
@@ -66,14 +109,14 @@ def crear_turno(turno: TurnoCreate, db: Session = Depends(get_db)):
             fin_dt = dummy_date + timedelta(minutes=30)
             turno.hora_fin = fin_dt.time()
 
-    # 2. Validar superposición (solo si hay kine asignado)
+    # 🛑 3. Validar superposición (Aquí es donde evitamos sobre turnos por ahora)
     if validar_superposicion(turno, db):
         raise HTTPException(
             status_code=400,
             detail="El turno se superpone con otro existente para este kinesiólogo"
         )
 
-    nuevo_turno = Turno(**turno.model_dump()) # Usamos model_dump() para Pydantic v2
+    nuevo_turno = Turno(**turno.model_dump()) 
     db.add(nuevo_turno)
     db.commit()
     db.refresh(nuevo_turno)
@@ -172,6 +215,12 @@ def actualizar_turno(
     if not turno_existente:
         raise HTTPException(status_code=404, detail="Turno no encontrado")
 
+    # 🛑 Si se intenta cambiar fecha u hora, validamos reglas primero
+    if turno.fecha or turno.hora_inicio:
+        fecha_a_validar = turno.fecha if turno.fecha else turno_existente.fecha
+        hora_a_validar = turno.hora_inicio if turno.hora_inicio else turno_existente.hora_inicio
+        validar_reglas_horarias(fecha_a_validar, hora_a_validar)
+
     if turno.fecha and turno.hora_inicio and turno.hora_fin:
         # Aseguramos un ID para validar, si no hay kine nuevo, usamos el existente
         kine_check = turno.kinesiologo_id if turno.kinesiologo_id is not None else turno_existente.kinesiologo_id
@@ -182,7 +231,8 @@ def actualizar_turno(
             hora_fin=turno.hora_fin,
             kinesiologo_id=kine_check,
             paciente_id=turno.paciente_id or turno_existente.paciente_id,
-            estado=turno.estado or turno_existente.estado
+            estado=turno.estado or turno_existente.estado or "pendiente",
+            servicio_id=turno_existente.servicio_id # Necesario para el schema aunque no se use en validación
         )
 
         if validar_superposicion(temp_turno, db, exclude_id=turno_id):
@@ -279,7 +329,7 @@ def obtener_turnos_calendario(
 def mover_turno(
     turno_id: int,
     nueva_fecha: date,
-    nueva_hora_inicio: str,
+    nueva_hora_inicio: str, # Recibimos string, lo convertimos dentro
     nueva_hora_fin: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
@@ -292,12 +342,52 @@ def mover_turno(
     if not turno:
         raise HTTPException(status_code=404, detail="Turno no encontrado")
     
+    # Convertir strings de hora a objetos time para validaciones
+    try:
+        # Intentamos parsear HH:MM o HH:MM:SS
+        if len(nueva_hora_inicio) == 5:
+            hora_inicio_obj = datetime.strptime(nueva_hora_inicio, "%H:%M").time()
+        else:
+            hora_inicio_obj = datetime.strptime(nueva_hora_inicio, "%H:%M:%S").time()
+            
+        if nueva_hora_fin:
+            if len(nueva_hora_fin) == 5:
+                hora_fin_obj = datetime.strptime(nueva_hora_fin, "%H:%M").time()
+            else:
+                hora_fin_obj = datetime.strptime(nueva_hora_fin, "%H:%M:%S").time()
+        else:
+             # Si no viene hora fin, mantenemos la duración original del turno
+             duracion_actual = datetime.combine(date.min, turno.hora_fin) - datetime.combine(date.min, turno.hora_inicio)
+             hora_fin_obj = (datetime.combine(date.today(), hora_inicio_obj) + duracion_actual).time()
+
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Formato de hora inválido")
+
+    # 🛑 1. Validar reglas de negocio (finde, hora, pasado)
+    validar_reglas_horarias(nueva_fecha, hora_inicio_obj)
+
+    # 🛑 2. Validar Superposición al mover (Drag & Drop)
+    # Creamos un objeto temporal simular un TurnoUpdate
+    temp_turno = TurnoCreate(
+        fecha=nueva_fecha,
+        hora_inicio=hora_inicio_obj,
+        hora_fin=hora_fin_obj,
+        kinesiologo_id=turno.kinesiologo_id,
+        paciente_id=turno.paciente_id,
+        servicio_id=turno.servicio_id,
+        estado=turno.estado
+    )
+
+    if validar_superposicion(temp_turno, db, exclude_id=turno_id):
+        raise HTTPException(
+            status_code=400, 
+            detail="No se puede mover aquí: el horario está ocupado."
+        )
+
     # Actualizar fecha y hora
     turno.fecha = nueva_fecha
-    turno.hora_inicio = nueva_hora_inicio
-    
-    if nueva_hora_fin:
-        turno.hora_fin = nueva_hora_fin
+    turno.hora_inicio = hora_inicio_obj
+    turno.hora_fin = hora_fin_obj
     
     db.commit()
     db.refresh(turno)

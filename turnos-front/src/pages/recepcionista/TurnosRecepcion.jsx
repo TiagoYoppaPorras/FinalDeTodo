@@ -8,6 +8,8 @@ import {
   AlertCircle,
   Search
 } from "lucide-react";
+// 👇 Importamos las alertas
+import { alertaExito, alertaError } from "../../utils/alerts";
 
 export default function TurnosRecepcion() {
   const [turnos, setTurnos] = useState([]);
@@ -35,11 +37,11 @@ export default function TurnosRecepcion() {
   const confirmarAsistencia = async (turnoId, llegoTarde = false) => {
     try {
       await api.patch(`/recepcion/${turnoId}/confirmar-asistencia?llego_tarde=${llegoTarde}`);
-      alert(llegoTarde ? "✅ Asistencia confirmada (Llegó tarde)" : "✅ Asistencia confirmada");
+      alertaExito(llegoTarde ? "Asistencia confirmada (Llegó tarde)" : "Asistencia confirmada"); // ✨
       fetchTurnos();
     } catch (err) {
       console.error("Error confirmando asistencia:", err);
-      alert("Error al confirmar asistencia");
+      alertaError("Error al confirmar asistencia"); // ✨
     }
   };
 
@@ -49,33 +51,28 @@ export default function TurnosRecepcion() {
     try {
       const params = motivo ? `?motivo=${encodeURIComponent(motivo)}` : "";
       await api.patch(`/recepcion/${turnoId}/marcar-ausente${params}`);
-      alert("❌ Turno marcado como ausente");
+      alertaExito("Turno marcado como ausente"); // ✨
       fetchTurnos();
     } catch (err) {
       console.error("Error marcando ausencia:", err);
-      alert("Error al marcar ausencia");
+      alertaError("Error al marcar ausencia"); // ✨
     }
   };
 
   // Filtrar turnos
   const turnosFiltrados = turnos.filter((turno) => {
-    // Filtro por estado
     if (filtro !== "todos" && turno.estado !== filtro) {
       return false;
     }
-
-    // Búsqueda por nombre
     if (busqueda) {
       const nombrePaciente = turno.paciente?.user?.nombre?.toLowerCase() || "";
       const nombreKine = turno.kinesiologo?.user?.nombre?.toLowerCase() || "";
       const query = busqueda.toLowerCase();
       return nombrePaciente.includes(query) || nombreKine.includes(query);
     }
-
     return true;
   });
 
-  // Obtener color según estado
   const getEstadoColor = (estado) => {
     switch (estado) {
       case "pendiente": return "bg-yellow-100 text-yellow-800";
@@ -96,13 +93,13 @@ export default function TurnosRecepcion() {
 
   return (
     <MainLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-gray-800">
             Turnos del Día
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 capitalize">
             {new Date().toLocaleDateString("es-AR", {
               weekday: "long",
               year: "numeric",
@@ -115,7 +112,6 @@ export default function TurnosRecepcion() {
         {/* Filtros y Búsqueda */}
         <div className="bg-white rounded-lg shadow-sm border p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Búsqueda */}
             <div className="relative">
               <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
               <input
@@ -126,10 +122,8 @@ export default function TurnosRecepcion() {
                 onChange={(e) => setBusqueda(e.target.value)}
               />
             </div>
-
-            {/* Filtro por estado */}
             <select
-              className="border rounded-lg px-4 py-2"
+              className="border rounded-lg px-4 py-2 w-full"
               value={filtro}
               onChange={(e) => setFiltro(e.target.value)}
             >
@@ -143,139 +137,103 @@ export default function TurnosRecepcion() {
         </div>
 
         {/* Lista de Turnos */}
-        <div className="bg-white rounded-lg shadow-sm border">
+        <div className="space-y-4">
           {turnosFiltrados.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="bg-white p-8 text-center text-gray-500 rounded-lg border shadow-sm">
               No hay turnos que coincidan con los filtros
             </div>
           ) : (
-            <div className="divide-y">
-              {turnosFiltrados.map((turno) => (
-                <div key={turno.id} className="p-4 hover:bg-gray-50 transition">
-                  <div className="flex items-center justify-between">
-                    {/* Info del turno */}
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-4">
-                        {/* Hora */}
-                        <div className="text-center min-w-[80px]">
-                          <p className="text-2xl font-bold text-blue-600">
-                            {turno.hora_inicio?.slice(0, 5)}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {turno.hora_fin?.slice(0, 5)}
-                          </p>
-                        </div>
-
-                        {/* Detalles */}
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="font-semibold text-gray-800 text-lg">
-                              {turno.paciente?.user?.nombre || "Sin nombre"}
-                            </p>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getEstadoColor(turno.estado)}`}>
-                              {turno.estado}
-                            </span>
-                          </div>
-                          
-                          <div className="text-sm text-gray-600 space-y-1">
-                            <p>
-                              <span className="font-medium">Kinesiólogo:</span>{" "}
-                              {turno.kinesiologo?.user?.nombre || "Sin asignar"}
-                            </p>
-                            <p>
-                              <span className="font-medium">Servicio:</span>{" "}
-                              {turno.servicio?.nombre || "Sin servicio"}
-                            </p>
-                            {turno.sala && (
-                              <p>
-                                <span className="font-medium">Sala:</span> {turno.sala.nombre}
-                              </p>
-                            )}
-                            {turno.motivo && (
-                              <p>
-                                <span className="font-medium">Motivo:</span> {turno.motivo}
-                              </p>
-                            )}
-                            {turno.observaciones && (
-                              <p className="text-xs text-gray-500 italic">
-                                {turno.observaciones}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+            turnosFiltrados.map((turno) => (
+              <div key={turno.id} className="bg-white rounded-lg shadow-sm border p-4 transition hover:shadow-md">
+                {/* Contenedor flexible: Columna en móvil, Fila en escritorio */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  
+                  {/* Info Izquierda */}
+                  <div className="flex items-start gap-4">
+                    {/* Hora Box */}
+                    <div className="text-center min-w-[70px] bg-blue-50 rounded-lg p-2 border border-blue-100">
+                      <p className="text-xl font-bold text-blue-700">
+                        {turno.hora_inicio?.slice(0, 5)}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {turno.hora_fin?.slice(0, 5)}
+                      </p>
                     </div>
 
-                    {/* Acciones */}
+                    {/* Detalles */}
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <p className="font-semibold text-gray-800 text-lg">
+                          {turno.paciente?.user?.nombre || "Sin nombre"}
+                        </p>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase ${getEstadoColor(turno.estado)}`}>
+                          {turno.estado}
+                        </span>
+                      </div>
+                      
+                      <div className="text-sm text-gray-600 space-y-0.5">
+                        <p><span className="font-medium">Kinesiólogo:</span> {turno.kinesiologo?.user?.nombre}</p>
+                        <p><span className="font-medium">Servicio:</span> {turno.servicio?.nombre}</p>
+                        {turno.sala && <p><span className="font-medium">Sala:</span> {turno.sala.nombre}</p>}
+                        {turno.motivo && <p className="italic text-gray-500">"{turno.motivo}"</p>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Acciones (Botones) */}
+                  <div className="flex flex-col sm:flex-row md:flex-col gap-2 w-full md:w-auto">
                     {turno.estado === "pendiente" && (
-                      <div className="flex flex-col gap-2 ml-4">
+                      <>
                         <button
                           onClick={() => confirmarAsistencia(turno.id, false)}
-                          className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm"
+                          className="flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm font-medium w-full"
                         >
-                          <CheckCircle className="w-4 h-4" />
-                          Confirmar
+                          <CheckCircle className="w-4 h-4" /> Confirmar
                         </button>
                         <button
                           onClick={() => confirmarAsistencia(turno.id, true)}
-                          className="flex items-center gap-2 bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition text-sm"
+                          className="flex items-center justify-center gap-2 bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition text-sm font-medium w-full"
                         >
-                          <Clock className="w-4 h-4" />
-                          Llegó Tarde
+                          <Clock className="w-4 h-4" /> Llegó Tarde
                         </button>
                         <button
                           onClick={() => marcarAusente(turno.id)}
-                          className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition text-sm"
+                          className="flex items-center justify-center gap-2 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition text-sm font-medium w-full"
                         >
-                          <XCircle className="w-4 h-4" />
-                          Ausente
+                          <XCircle className="w-4 h-4" /> Ausente
                         </button>
-                      </div>
+                      </>
                     )}
 
                     {turno.estado === "confirmado" && (
-                      <div className="ml-4">
-                        <div className="flex items-center gap-2 text-green-600 font-medium">
-                          <CheckCircle className="w-5 h-5" />
-                          Confirmado
-                        </div>
+                      <div className="flex items-center gap-2 text-green-600 font-medium bg-green-50 px-3 py-2 rounded-lg justify-center md:justify-end">
+                        <CheckCircle className="w-5 h-5" /> Confirmado
                       </div>
                     )}
 
                     {turno.estado === "cancelado" && (
-                      <div className="ml-4">
-                        <div className="flex items-center gap-2 text-red-600 font-medium">
-                          <XCircle className="w-5 h-5" />
-                          Ausente
-                        </div>
-                      </div>
-                    )}
-
-                    {turno.estado === "completado" && (
-                      <div className="ml-4">
-                        <div className="flex items-center gap-2 text-purple-600 font-medium">
-                          <CheckCircle className="w-5 h-5" />
-                          Completado
-                        </div>
+                      <div className="flex items-center gap-2 text-red-600 font-medium bg-red-50 px-3 py-2 rounded-lg justify-center md:justify-end">
+                        <XCircle className="w-5 h-5" /> Ausente
                       </div>
                     )}
                   </div>
+
                 </div>
-              ))}
-            </div>
+              </div>
+            ))
           )}
         </div>
 
-        {/* Resumen */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        {/* Resumen Footer */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-blue-800">
-              <p className="font-medium mb-1">Instrucciones:</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li><strong>Confirmar:</strong> Cuando el paciente llega a tiempo</li>
-                <li><strong>Llegó Tarde:</strong> Cuando el paciente llega después de la hora</li>
-                <li><strong>Ausente:</strong> Cuando el paciente no se presenta</li>
+              <p className="font-medium mb-1">Guía Rápida:</p>
+              <ul className="list-disc list-inside space-y-1 ml-1">
+                <li>Use <strong>Confirmar</strong> cuando el paciente llegue a tiempo.</li>
+                <li>Use <strong>Llegó Tarde</strong> si el paciente llega con retraso (quedará registrado).</li>
+                <li>Use <strong>Ausente</strong> si el paciente no se presenta al turno.</li>
               </ul>
             </div>
           </div>

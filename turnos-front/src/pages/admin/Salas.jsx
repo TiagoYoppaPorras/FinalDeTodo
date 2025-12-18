@@ -4,14 +4,15 @@ import api from "../../api/Client";
 import { Layers, PlusCircle, Trash2, Edit } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import EditModal from "../../components/common/EditModal";
-import DataTable from "../../components/common/DataTable"; // 👈 Importamos el componente responsive
+import DataTable from "../../components/common/DataTable";
+// 👇 Importamos las alertas
+import { alertaExito, alertaError, confirmarAccion } from "../../utils/alerts";
 
 export default function Salas() {
   const [salas, setSalas] = useState([]);
   const [nuevaSala, setNuevaSala] = useState({ nombre: "", ubicacion: "" });
-  const [loading, setLoading] = useState(true); // Agregamos estado de carga
+  const [loading, setLoading] = useState(true);
 
-  // Estados para edición
   const [editando, setEditando] = useState(null);
   const [datosEdicion, setDatosEdicion] = useState({});
   const [isLoadingSave, setIsLoadingSave] = useState(false);
@@ -38,16 +39,15 @@ export default function Salas() {
     e.preventDefault();
     try {
       await api.post("/salas/", nuevaSala);
-      alert("✅ Sala creada correctamente");
+      alertaExito("Sala creada correctamente"); // ✨
       setNuevaSala({ nombre: "", ubicacion: "" });
       fetchSalas();
     } catch (err) {
       console.error("❌ Error al crear sala:", err);
-      alert("Error al crear sala");
+      alertaError("Error al crear sala"); // ✨
     }
   };
 
-  // --- 🔹 Abrir modal de edición ---
   const handleEdit = (sala) => {
     setEditando(sala.id);
     setDatosEdicion({
@@ -56,34 +56,36 @@ export default function Salas() {
     });
   };
 
-  // --- 🔹 Guardar cambios de edición ---
   const handleUpdate = async () => {
     setIsLoadingSave(true);
     try {
       await api.put(`/salas/${editando}`, datosEdicion);
-      alert("✅ Sala actualizada correctamente");
+      alertaExito("Sala actualizada correctamente"); // ✨
       setEditando(null);
       setDatosEdicion({});
       fetchSalas();
     } catch (err) {
       console.error("❌ Error actualizando sala:", err);
-      alert("Error al actualizar sala");
+      alertaError("Error al actualizar sala"); // ✨
     } finally {
       setIsLoadingSave(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("¿Eliminar sala?")) return;
+    const confirmado = await confirmarAccion("¿Eliminar sala?", "Esta acción no se puede deshacer."); // ✨
+    if (!confirmado) return;
+
     try {
       await api.delete(`/salas/${id}`);
+      alertaExito("Sala eliminada"); // ✨
       fetchSalas();
     } catch (err) {
       console.error("❌ Error al eliminar sala:", err);
+      alertaError("Error al eliminar sala"); // ✨
     }
   };
 
-  // 🔹 DEFINICIÓN DE COLUMNAS PARA DATATABLE
   const columns = [
     { key: "nombre", label: "Nombre" },
     { key: "ubicacion", label: "Ubicación", render: (s) => s.ubicacion || "—" },
@@ -126,7 +128,6 @@ export default function Salas() {
           <Layers className="text-green-600 w-6 h-6" /> Salas
         </h1>
 
-        {/* Solo admin puede crear */}
         {isAdmin && (
           <form
             onSubmit={handleCreate}
@@ -163,14 +164,12 @@ export default function Salas() {
           </form>
         )}
 
-        {/* 🔹 TABLA RESPONSIVE */}
         <DataTable 
           data={salas} 
           columns={columns} 
           emptyMessage="No hay salas registradas." 
         />
 
-        {/* 🔹 Modal de edición */}
         <EditModal
           isOpen={editando !== null}
           onClose={() => {

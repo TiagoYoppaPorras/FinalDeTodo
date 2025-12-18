@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import MainLayout from "../../components/layout/MainLayout";
 import api from "../../api/Client";
 import { Shield, PlusCircle, Trash2 } from "lucide-react";
-import DataTable from "../../components/common/DataTable"; // 👈 Importamos el componente responsive
+import DataTable from "../../components/common/DataTable";
+// 👇 Importamos las alertas
+import { alertaExito, alertaError, confirmarAccion } from "../../utils/alerts";
 
 export default function Roles() {
   const [roles, setRoles] = useState([]);
@@ -12,7 +14,6 @@ export default function Roles() {
   });
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Obtener roles
   const fetchRoles = async () => {
     try {
       const res = await api.get("/roles/");
@@ -28,33 +29,33 @@ export default function Roles() {
     fetchRoles();
   }, []);
 
-  // 🔹 Crear nuevo rol
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
       await api.post("/roles/", nuevoRol);
-      alert("✅ Rol creado correctamente");
+      alertaExito("Rol creado correctamente"); // ✨
       setNuevoRol({ name: "", description: "" });
       fetchRoles();
     } catch (err) {
       console.error("❌ Error creando rol:", err);
-      alert("Error al crear el rol");
+      alertaError("Error al crear el rol"); // ✨
     }
   };
 
-  // 🔹 Eliminar rol
   const handleDelete = async (id) => {
-    if (!confirm("¿Eliminar rol?")) return;
+    const confirmado = await confirmarAccion("¿Eliminar rol?", "Esta acción no se puede deshacer."); // ✨
+    if (!confirmado) return;
+
     try {
       await api.delete(`/roles/${id}`);
+      alertaExito("Rol eliminado"); // ✨
       fetchRoles();
     } catch (err) {
       console.error("Error eliminando rol:", err);
-      alert("No se pudo eliminar el rol");
+      alertaError("No se pudo eliminar el rol"); // ✨
     }
   };
 
-  // 🔹 DEFINICIÓN DE COLUMNAS PARA DATATABLE
   const columns = [
     { key: "id", label: "ID", render: (r) => <span className="text-gray-500">#{r.id}</span> },
     { key: "name", label: "Nombre", render: (r) => <span className="font-medium text-gray-800">{r.name}</span> },
@@ -91,7 +92,6 @@ export default function Roles() {
           <Shield className="text-blue-600 w-6 h-6" /> Gestión de Roles
         </h1>
 
-        {/* 🔹 Formulario de creación */}
         <form
           onSubmit={handleCreate}
           className="bg-white p-4 md:p-6 rounded-lg shadow-sm border space-y-4"
@@ -127,7 +127,6 @@ export default function Roles() {
           </button>
         </form>
 
-        {/* 🔹 TABLA RESPONSIVE */}
         <DataTable 
           data={roles} 
           columns={columns} 

@@ -3,6 +3,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { Eye, EyeOff, User, Lock, Mail } from "lucide-react";
 import { registerUser } from "../api/auth";
 import { useAuth } from "../context/AuthContext";
+// 👇 Importamos alerta
+import { alertaExito } from "../utils/alerts";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -39,9 +41,11 @@ export default function Register() {
       // Si el backend devuelve un token (como el login), logueamos directo
       if (data.access_token) {
         await login(data.access_token);
+        alertaExito("¡Registro exitoso! Bienvenido."); // ✨
         navigate("/dashboard");
       } else {
         // Si solo crea el usuario sin token, redirigimos al login
+        alertaExito("Cuenta creada. Por favor inicia sesión."); // ✨
         navigate("/login");
       }
     } catch (err) {

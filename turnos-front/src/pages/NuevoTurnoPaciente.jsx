@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import MainLayout from "../components/layout/MainLayout";
 import api from "../api/Client";
-import { PlusCircle, User, MapPin } from "lucide-react"; // Agregué iconos
+import { PlusCircle, User, MapPin } from "lucide-react"; 
 import { useAuth } from "../context/AuthContext";
+// 👇 Importamos las alertas
+import { alertaExito, alertaError } from "../utils/alerts";
 
 export default function NuevoTurnoPaciente() {
   const { user } = useAuth();
@@ -17,8 +19,8 @@ export default function NuevoTurnoPaciente() {
   // Estado del formulario
   const [nuevoTurno, setNuevoTurno] = useState({
     servicio_id: "",
-    kinesiologo_id: "", // Nuevo campo
-    sala_id: "", // Nuevo campo
+    kinesiologo_id: "", 
+    sala_id: "", 
     fecha: "",
     hora: "",
     motivo: "",
@@ -73,7 +75,7 @@ export default function NuevoTurnoPaciente() {
     e.preventDefault();
 
     if (!pacienteId) {
-      alert("No se encontró el perfil del paciente asociado a este usuario.");
+      alertaError("No se encontró el perfil del paciente asociado a este usuario."); // ✨
       return;
     }
 
@@ -109,7 +111,7 @@ export default function NuevoTurnoPaciente() {
       console.log("Enviando payload:", payload);
 
       await api.post("/turnos/", payload);
-      alert("✅ Turno solicitado correctamente");
+      alertaExito("Turno solicitado correctamente"); // ✨
 
       // Resetear formulario
       setNuevoTurno({
@@ -123,9 +125,9 @@ export default function NuevoTurnoPaciente() {
     } catch (err) {
       console.error("❌ Error solicitando turno:", err);
       if (err.response && err.response.data) {
-        alert(`Error: ${JSON.stringify(err.response.data.detail)}`);
+        alertaError(`Error: ${JSON.stringify(err.response.data.detail)}`); // ✨
       } else {
-        alert("Error al solicitar turno");
+        alertaError("Error al solicitar turno"); // ✨
       }
     }
   };
@@ -197,7 +199,6 @@ export default function NuevoTurnoPaciente() {
               <option value="">-- Cualquiera disponible --</option>
               {kinesiologos.map((k) => (
                 <option key={k.id} value={k.id}>
-                  {/* Aquí está el cambio clave: k.user?.nombre */}
                   {k.user ? k.user.nombre : "Kinesiólogo #" + k.id}
                 </option>
               ))}

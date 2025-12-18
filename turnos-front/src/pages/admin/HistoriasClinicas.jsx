@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom"; // 👈 Agregado useNavigate
+import { useSearchParams, useNavigate } from "react-router-dom"; 
 import MainLayout from "../../components/layout/MainLayout";
 import api from "../../api/Client";
 import { 
@@ -17,12 +17,14 @@ import {
 } from "lucide-react";
 import EditModal from "../../components/common/EditModal";
 import { useAuth } from "../../context/AuthContext";
+// 👇 Importamos las alertas
+import { alertaExito, alertaError, confirmarAccion } from "../../utils/alerts";
 
 export default function HistoriasClinicas() {
   const [searchParams] = useSearchParams();
   const pacienteIdParam = searchParams.get("paciente_id");
   const { roles } = useAuth();
-  const navigate = useNavigate(); // 👈 Hook necesario para la redirección
+  const navigate = useNavigate(); 
 
   const [historias, setHistorias] = useState([]);
   const [pacientes, setPacientes] = useState([]);
@@ -173,7 +175,7 @@ export default function HistoriasClinicas() {
 
     // Validación
     if (!formData.paciente_id || !formData.kinesiologo_id || !formData.motivo_consulta) {
-      alert("⚠️ Paciente, Kinesiólogo y Motivo de Consulta son obligatorios");
+      alertaError("Paciente, Kinesiólogo y Motivo de Consulta son obligatorios"); // ✨
       setIsLoadingSave(false);
       return;
     }
@@ -197,17 +199,17 @@ export default function HistoriasClinicas() {
 
       if (editando) {
         await api.put(`/historias-clinicas/${editando}`, payload);
-        alert("✅ Historia clínica actualizada");
+        alertaExito("Historia clínica actualizada"); // ✨
       } else {
         await api.post("/historias-clinicas/", payload);
-        alert("✅ Historia clínica creada");
+        alertaExito("Historia clínica creada"); // ✨
       }
 
       setModalAbierto(false);
       fetchDatos();
     } catch (err) {
       console.error("❌ Error guardando:", err);
-      alert(err.response?.data?.detail || "Error al guardar");
+      alertaError(err.response?.data?.detail || "Error al guardar"); // ✨
     } finally {
       setIsLoadingSave(false);
     }
@@ -217,15 +219,16 @@ export default function HistoriasClinicas() {
   // ELIMINAR
   // ==========================================
   const handleEliminar = async (id) => {
-    if (!confirm("¿Eliminar esta historia clínica?")) return;
+    const confirmado = await confirmarAccion("¿Eliminar historia?", "Esta acción no se puede deshacer."); // ✨
+    if (!confirmado) return;
 
     try {
       await api.delete(`/historias-clinicas/${id}`);
-      alert("✅ Historia eliminada");
+      alertaExito("Historia eliminada"); // ✨
       fetchDatos();
     } catch (err) {
       console.error("❌ Error eliminando:", err);
-      alert("Error al eliminar");
+      alertaError("Error al eliminar"); // ✨
     }
   };
 

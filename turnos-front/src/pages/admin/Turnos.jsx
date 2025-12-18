@@ -5,6 +5,8 @@ import DataTable from "../../components/common/DataTable";
 import { CalendarDays, PlusCircle, Edit, Trash2, CheckCircle, XCircle, FileText } from "lucide-react";
 import EditModal from "../../components/common/EditModal";
 import { useNavigate } from "react-router-dom";
+// 👇 Importamos las alertas personalizadas
+import { alertaExito, alertaError, confirmarAccion } from "../../utils/alerts";
 
 export default function Turnos() {
   const [turnos, setTurnos] = useState([]);
@@ -24,6 +26,30 @@ export default function Turnos() {
   const [datosEdicion, setDatosEdicion] = useState({});
   const [isLoadingSave, setIsLoadingSave] = useState(false);
 
+  // Obtener fecha de hoy formato YYYY-MM-DD
+  const hoyString = new Date().toLocaleDateString('en-CA'); // Formato YYYY-MM-DD local seguro
+
+  // 🆕 Función para calcular dinámicamente el MIN de la hora
+  const calcularMinimoHora = (fechaSeleccionada) => {
+    const HORA_APERTURA = "08:00";
+    
+    if (!fechaSeleccionada) return HORA_APERTURA;
+
+    // Si la fecha seleccionada es HOY, comparamos la hora
+    if (fechaSeleccionada === hoyString) {
+        const ahora = new Date();
+        const horas = String(ahora.getHours()).padStart(2, '0');
+        const minutos = String(ahora.getMinutes()).padStart(2, '0');
+        const horaActual = `${horas}:${minutos}`;
+
+        // Si son las 10:00, el mínimo es 10:00. Si son las 07:00, el mínimo es 08:00.
+        return horaActual > HORA_APERTURA ? horaActual : HORA_APERTURA;
+    }
+
+    // Si es un día futuro, el mínimo es la apertura
+    return HORA_APERTURA;
+  };
+
   const fetchData = async () => {
     try {
       const [resTurnos, resPac, resKine, resServ, resSalas] = await Promise.all([
@@ -34,7 +60,6 @@ export default function Turnos() {
         api.get("/salas/"),
       ]);
 
-      // 🔹 MODIFICACIÓN: Ordenar por ID descendente (el ID más alto es el último creado)
       const turnosOrdenados = resTurnos.data.sort((a, b) => b.id - a.id);
       
       setTurnos(turnosOrdenados);
@@ -53,18 +78,39 @@ export default function Turnos() {
     fetchData();
   }, []);
 
-  // --- Handlers (Crear, Editar, Borrar, Cambiar Estado) ---
+  const validarFecha = (fecha, setFunction, stateActual) => {
+    if (!fecha) return;
+    const dateObj = new Date(fecha + "T00:00:00");
+    const diaSemana = dateObj.getDay(); // 0=Domingo, 6=Sábado
+    
+    if (diaSemana === 0 || diaSemana === 6) {
+        alertaError("No se pueden asignar turnos los Sábados ni Domingos."); // ✨
+        setFunction({ ...stateActual, fecha: "" }); 
+    } else {
+        // Al cambiar la fecha, chequeamos si la hora que ya estaba puesta sigue siendo válida
+        const nuevaHoraMinima = calcularMinimoHora(fecha);
+        const horaActual = stateActual.hora || stateActual.hora_inicio;
+        
+        // Si hay una hora puesta y es menor al nuevo mínimo, limpiar hora
+        if (horaActual && horaActual < nuevaHoraMinima) {
+            setFunction({ ...stateActual, fecha: fecha, hora: "", hora_inicio: "" });
+        } else {
+            setFunction({ ...stateActual, fecha: fecha });
+        }
+    }
+  };
+
   const handleCrearTurno = async (e) => {
     e.preventDefault();
     if (!nuevoTurno.paciente_id || !nuevoTurno.kinesiologo_id) {
-      alert("Debe seleccionar un paciente y un kinesiólogo");
+      alertaError("Debe seleccionar un paciente y un kinesiólogo"); // ✨
       return;
     }
     try {
       const payload = {
         fecha: nuevoTurno.fecha,
         hora_inicio: nuevoTurno.hora,
-        hora_fin: nuevoTurno.hora,
+        hora_fin: nuevoTurno.hora, // El backend calcula el fin real
         estado: "pendiente",
         motivo: nuevoTurno.motivo,
         observaciones: "",
@@ -74,12 +120,12 @@ export default function Turnos() {
         sala_id: parseInt(nuevoTurno.sala_id || 0),
       };
       await api.post("/turnos/", payload);
-      alert("✅ Turno creado correctamente");
+      alertaExito("Turno creado correctamente"); // ✨
       setNuevoTurno({ paciente_id: "", kinesiologo_id: "", servicio_id: "", sala_id: "", fecha: "", hora: "", motivo: "" });
       fetchData();
     } catch (err) {
-      console.error("❌ Error al crear turno:", err);
-      alert("Error al crear turno");
+        const mensaje = err.response?.data?.detail || "Error al crear turno";
+        alertaError(mensaje); // ✨
     }
   };
 
@@ -115,13 +161,13 @@ export default function Turnos() {
         observaciones: datosEdicion.observaciones,
       };
       await api.put(`/turnos/${editando}`, payload);
-      alert("✅ Turno actualizado correctamente");
+      alertaExito("Turno actualizado correctamente"); // ✨
       setEditando(null);
       setDatosEdicion({});
       fetchData();
     } catch (err) {
-      console.error("❌ Error actualizando turno:", err);
-      alert("Error al actualizar turno");
+      const mensaje = err.response?.data?.detail || "Error al actualizar turno";
+      alertaError(mensaje); // ✨
     } finally {
       setIsLoadingSave(false);
     }
@@ -133,20 +179,24 @@ export default function Turnos() {
       fetchData();
     } catch (err) {
       console.error("Error cambiando estado:", err);
+      alertaError("No se pudo cambiar el estado"); // ✨
     }
   };
 
   const eliminarTurno = async (item) => {
-    if (!confirm("¿Eliminar turno?")) return;
+    const confirmado = await confirmarAccion("¿Eliminar turno?", "Esta acción no se puede deshacer."); // ✨
+    if (!confirmado) return;
+
     try {
       await api.delete(`/turnos/${item.id}`);
+      alertaExito("Turno eliminado"); // ✨
       fetchData();
     } catch (err) {
       console.error("Error al eliminar turno:", err);
+      alertaError("Error al eliminar turno"); // ✨
     }
   };
 
-  // 🔹 DEFINICIÓN DE COLUMNAS PARA DATATABLE
   const columns = [
     { key: "id", label: "ID", render: (t) => <span className="text-gray-500">#{t.id}</span> },
     { key: "paciente", label: "Paciente", render: (t) => t.paciente?.user?.nombre || "—" },
@@ -224,8 +274,28 @@ export default function Turnos() {
               <option value="">Seleccione Sala</option>
               {salas.map((s) => <option key={s.id} value={s.id}>{s.nombre} ({s.ubicacion})</option>)}
             </select>
-            <input type="date" className="border p-2 rounded w-full" value={nuevoTurno.fecha} onChange={(e) => setNuevoTurno({ ...nuevoTurno, fecha: e.target.value })} required />
-            <input type="time" className="border p-2 rounded w-full" value={nuevoTurno.hora} onChange={(e) => setNuevoTurno({ ...nuevoTurno, hora: e.target.value })} required />
+
+            {/* INPUT FECHA VALIDADO */}
+            <input 
+                type="date" 
+                className="border p-2 rounded w-full" 
+                value={nuevoTurno.fecha} 
+                min={hoyString} 
+                onChange={(e) => validarFecha(e.target.value, setNuevoTurno, nuevoTurno)} 
+                required 
+            />
+
+            {/* INPUT HORA INTELIGENTE */}
+            <input 
+                type="time" 
+                className="border p-2 rounded w-full" 
+                value={nuevoTurno.hora} 
+                min={calcularMinimoHora(nuevoTurno.fecha)} 
+                max="22:00" 
+                onChange={(e) => setNuevoTurno({ ...nuevoTurno, hora: e.target.value })} 
+                required 
+            />
+
             <input type="text" placeholder="Motivo del turno" className="border p-2 rounded md:col-span-3 w-full" value={nuevoTurno.motivo} onChange={(e) => setNuevoTurno({ ...nuevoTurno, motivo: e.target.value })} />
           </div>
           <button type="submit" className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition w-full md:w-auto justify-center">
@@ -233,7 +303,6 @@ export default function Turnos() {
           </button>
         </form>
 
-        {/* 🔹 TABLA RESPONSIVE */}
         <DataTable 
           data={turnos} 
           columns={columns} 
@@ -264,7 +333,6 @@ export default function Turnos() {
                   {kines.map((k) => <option key={k.id} value={k.id}>{k.user?.nombre}</option>)}
                 </select>
               </div>
-              {/* Resto de campos del modal... */}
               <div>
                  <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
                  <select className="w-full border border-gray-300 rounded-lg p-2" value={datosEdicion.estado || ""} onChange={(e) => setDatosEdicion({ ...datosEdicion, estado: e.target.value })}>
@@ -274,16 +342,31 @@ export default function Turnos() {
                     <option value="completado">Completado</option>
                  </select>
               </div>
+
+               {/* FECHA Y HORA EN EDIT MODAL */}
                <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
-                <input type="date" className="w-full border border-gray-300 rounded-lg p-2" value={datosEdicion.fecha || ""} onChange={(e) => setDatosEdicion({ ...datosEdicion, fecha: e.target.value })} />
+                <input 
+                    type="date" 
+                    className="w-full border border-gray-300 rounded-lg p-2" 
+                    value={datosEdicion.fecha || ""} 
+                    min={hoyString}
+                    onChange={(e) => validarFecha(e.target.value, setDatosEdicion, datosEdicion)} 
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Hora</label>
-                <input type="time" className="w-full border border-gray-300 rounded-lg p-2" value={datosEdicion.hora_inicio || ""} onChange={(e) => setDatosEdicion({ ...datosEdicion, hora_inicio: e.target.value })} />
+                <input 
+                    type="time" 
+                    className="w-full border border-gray-300 rounded-lg p-2" 
+                    value={datosEdicion.hora_inicio || ""} 
+                    min={calcularMinimoHora(datosEdicion.fecha)} 
+                    max="22:00"
+                    onChange={(e) => setDatosEdicion({ ...datosEdicion, hora_inicio: e.target.value })} 
+                />
               </div>
             </div>
-            {/* Botón Historia Clínica */}
+            
             {turnos.find(t => t.id === editando) && (
                 <button
                 onClick={() => {

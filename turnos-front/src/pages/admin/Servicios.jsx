@@ -4,7 +4,9 @@ import api from "../../api/Client";
 import { Layers, PlusCircle, Trash2, Edit } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import EditModal from "../../components/common/EditModal";
-import DataTable from "../../components/common/DataTable"; // 👈 Importamos el componente responsive
+import DataTable from "../../components/common/DataTable"; 
+// 👇 Importamos las alertas
+import { alertaExito, alertaError, confirmarAccion } from "../../utils/alerts";
 
 export default function Servicios() {
   const [servicios, setServicios] = useState([]);
@@ -13,7 +15,7 @@ export default function Servicios() {
     description: "", 
     duracion_minutos: "" 
   });
-  const [loading, setLoading] = useState(true); // Agregamos estado de carga
+  const [loading, setLoading] = useState(true);
 
   // Estados para edición
   const [editando, setEditando] = useState(null);
@@ -42,16 +44,15 @@ export default function Servicios() {
     e.preventDefault();
     try {
       await api.post("/servicios/", nuevoServicio);
-      alert("✅ Servicio creado correctamente");
+      alertaExito("Servicio creado correctamente"); // ✨
       setNuevoServicio({ nombre: "", description: "", duracion_minutos: "" });
       fetchServicios();
     } catch (err) {
       console.error("❌ Error al crear servicio:", err);
-      alert("Error al crear servicio");
+      alertaError("Error al crear servicio"); // ✨
     }
   };
 
-  // --- 🔹 Abrir modal de edición ---
   const handleEdit = (servicio) => {
     setEditando(servicio.id);
     setDatosEdicion({
@@ -61,30 +62,33 @@ export default function Servicios() {
     });
   };
 
-  // --- 🔹 Guardar cambios de edición ---
   const handleUpdate = async () => {
     setIsLoadingSave(true);
     try {
       await api.put(`/servicios/${editando}`, datosEdicion);
-      alert("✅ Servicio actualizado correctamente");
+      alertaExito("Servicio actualizado correctamente"); // ✨
       setEditando(null);
       setDatosEdicion({});
       fetchServicios();
     } catch (err) {
       console.error("❌ Error actualizando servicio:", err);
-      alert("Error al actualizar servicio");
+      alertaError("Error al actualizar servicio"); // ✨
     } finally {
       setIsLoadingSave(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("¿Eliminar servicio?")) return;
+    const confirmado = await confirmarAccion("¿Eliminar servicio?", "Esta acción no se puede deshacer."); // ✨
+    if (!confirmado) return;
+
     try {
       await api.delete(`/servicios/${id}`);
+      alertaExito("Servicio eliminado"); // ✨
       fetchServicios();
     } catch (err) {
       console.error("❌ Error al eliminar servicio:", err);
+      alertaError("Error al eliminar servicio"); // ✨
     }
   };
 
@@ -184,14 +188,12 @@ export default function Servicios() {
           </form>
         )}
 
-        {/* 🔹 TABLA RESPONSIVE */}
         <DataTable 
           data={servicios} 
           columns={columns} 
           emptyMessage="No hay servicios registrados." 
         />
 
-        {/* 🔹 Modal de edición */}
         <EditModal
           isOpen={editando !== null}
           onClose={() => {

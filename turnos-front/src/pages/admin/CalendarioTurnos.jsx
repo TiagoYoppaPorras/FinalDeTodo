@@ -13,10 +13,11 @@ import {
   X,
   Edit2,
   MapPin,
-  FileText,
 } from "lucide-react";
 import "./CalendarioTurnos.css"; 
 import { useNavigate } from "react-router-dom";
+// 👇 Alertas
+import { alertaExito, alertaError, confirmarAccion } from "../../utils/alerts";
 
 // Configurar moment en español
 moment.locale("es");
@@ -136,13 +137,43 @@ export default function CalendarioTurnos() {
     };
   };
 
+  // Función para pintar de GRIS los fines de semana
+  const slotPropGetter = (date) => {
+    const day = date.getDay(); // 0 domingo, 6 sabado
+    if (day === 0 || day === 6) {
+      return {
+        style: {
+          backgroundColor: '#f3f4f6', // Gris claro
+          cursor: 'not-allowed',
+        },
+      }
+    }
+    return {};
+  };
+
   const handleSelectEvent = (event) => {
     setTurnoSeleccionado(event.resource);
     setModalAbierto(true);
   };
 
   const handleEventDrop = async ({ event, start, end }) => {
-    if (!confirm("¿Mover este turno a la nueva fecha/hora?")) return;
+    // Validación Frontend Drag & Drop
+    const day = start.getDay();
+    if (day === 0 || day === 6) {
+        alertaError("No puedes mover un turno a un fin de semana."); // ✨
+        return;
+    }
+    
+    // Validar hora
+    const horaInicio = moment(start).hours();
+    if (horaInicio < 8 || horaInicio >= 22) {
+        alertaError("Horario fuera de atención (08:00 - 22:00)."); // ✨
+        return;
+    }
+
+    const confirmado = await confirmarAccion("¿Mover turno?", "Se actualizará la fecha y hora."); // ✨
+    if (!confirmado) return;
+
     try {
       const nuevaFecha = moment(start).format("YYYY-MM-DD");
       const nuevaHoraInicio = moment(start).format("HH:mm");
@@ -153,16 +184,18 @@ export default function CalendarioTurnos() {
         nueva_hora_inicio: nuevaHoraInicio,
         nueva_hora_fin: nuevaHoraFin,
       });
-      alert("✅ Turno movido correctamente");
+      alertaExito("Turno movido correctamente"); // ✨
       fetchDatos();
     } catch (err) {
-      console.error("❌ Error moviendo turno:", err);
-      alert("Error al mover turno");
+      const msg = err.response?.data?.detail || "Error al mover turno";
+      alertaError(msg); // ✨
     }
   };
 
   const handleEventResize = async ({ event, start, end }) => {
-    if (!confirm("¿Cambiar la duración de este turno?")) return;
+    const confirmado = await confirmarAccion("¿Cambiar duración?", "Se modificará la hora de fin."); // ✨
+    if (!confirmado) return;
+
     try {
       const nuevaHoraInicio = moment(start).format("HH:mm");
       const nuevaHoraFin = moment(end).format("HH:mm");
@@ -170,11 +203,11 @@ export default function CalendarioTurnos() {
         hora_inicio: nuevaHoraInicio,
         hora_fin: nuevaHoraFin,
       });
-      alert("✅ Duración actualizada");
+      alertaExito("Duración actualizada"); // ✨
       fetchDatos();
     } catch (err) {
-      console.error("❌ Error:", err);
-      alert("Error al cambiar duración");
+      const msg = err.response?.data?.detail || "Error al cambiar duración";
+      alertaError(msg); // ✨
     }
   };
 
@@ -282,7 +315,6 @@ export default function CalendarioTurnos() {
 
         {/* Calendario con Scroll Horizontal */}
         <div className="bg-white border rounded-lg p-2 md:p-4 shadow-sm calendario-container flex-1 overflow-hidden flex flex-col">
-           {/* Contenedor con scroll para evitar que se rompa en movil */}
            <div className="overflow-x-auto flex-1">
               <div className="min-w-[700px] h-full">
                 <BigCalendar
@@ -296,6 +328,7 @@ export default function CalendarioTurnos() {
                     view={vista}
                     onView={setVista}
                     eventPropGetter={eventStyleGetter}
+                    slotPropGetter={slotPropGetter} // 🆕 Pinta gris fines de semana
                     onSelectEvent={handleSelectEvent}
                     onSelectSlot={handleSelectSlot}
                     selectable
